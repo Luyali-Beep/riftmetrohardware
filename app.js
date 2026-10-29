@@ -12,7 +12,7 @@ let orderCart = [];
 let salesLogs = [];
 let expensesLogs = [];
 let staffUsers = [];
-let activeUser = null; // { username, role, full_name }
+let activeUser = null; 
 
 document.addEventListener('DOMContentLoaded', async () => {
     checkConnectionStatus();
@@ -44,11 +44,9 @@ function handleNavClick(role) {
         return;
     }
 
-    // If operator or admin is requested, check if already logged in with correct permissions
     if (activeUser && ((role === 'operator' && (activeUser.role === 'operator' || activeUser.role === 'admin')) || (role === 'admin' && activeUser.role === 'admin'))) {
         switchRole(role);
     } else {
-        // Prompt security login modal
         promptLogin(role);
     }
 }
@@ -608,7 +606,7 @@ async function createStaffAccount() {
 function renderStaffTable() {
     const tbody = document.getElementById('staffTableBody');
     if (!tbody) return;
-    tbody.innerHTML = '';
+    tbody.innerHTML = '`';
     staffUsers.forEach(u => {
         tbody.innerHTML += `
             <tr>
