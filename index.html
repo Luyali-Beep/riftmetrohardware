@@ -3,50 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rift Metro Hardware - Nakuru | Official Store</title>
-    
-    <!-- Tab Favicon -->
+    <title>Rift Metro Hardware - Nakuru</title>
     <link rel="icon" type="image/png" href="favicon.png">
-    
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <!-- 1. TOP OFFICIAL CONTACT & PAYBILL STRIP -->
+    <!-- TOP NOTICE STRIP -->
     <div class="top-notice-bar">
-        <div>
-            📍 Next to Sakinya Motors, Nakuru | 📞 0716117761 / 0790453707
-        </div>
-        <div>
-            💳 M-PESA PAYBILL: <span class="paybill-badge">880100</span> A/C NO: <span class="paybill-badge">117761</span>
-        </div>
+        <div>📍 Next to Sakinya Motors, Nakuru | 📞 0716117761 / 0790453707</div>
+        <div>M-PESA PAYBILL: <span class="paybill-badge">880100</span> | A/C: <span class="paybill-badge">117761</span></div>
     </div>
 
-    <!-- 2. STICKY HEADER & NAVIGATION -->
+    <!-- HEADER & NAVBAR -->
     <header class="site-header">
-        <div class="brand-wrapper">
-            <!-- Official Logo -->
-            <img src="logo.png" alt="Rift Metro Hardware" class="brand-logo-img" onerror="this.style.display='none'; document.getElementById('textBrandFallback').style.display='block';">
-            <div id="textBrandFallback" class="brand-fallback-text" style="display:none;">
-                RIFT METRO <span>HARDWARE</span>
-            </div>
+        <div class="brand">
+            <h1>⚡ RIFT METRO HARDWARE</h1>
+            <span id="connection-status" class="badge online">Online</span>
         </div>
-
-        <div class="role-nav-group">
-            <span id="activeUserGreeting" style="font-size:0.85rem; font-weight:700; color:var(--brand-blue); margin-right:8px;">Customer View</span>
-            <button type="button" class="nav-btn active" id="btnRoleViewer" onclick="navigateToView('viewer')">Catalog</button>
-            <button type="button" class="nav-btn" id="btnRoleOperator" onclick="navigateToView('operator')">Operator Desk</button>
-            <button type="button" class="nav-btn" id="btnRoleAdmin" onclick="navigateToView('admin')">Admin Portal</button>
-            <button type="button" class="nav-btn logout-btn" id="btnLogout" onclick="logoutCurrentSession()" style="display:none;">Sign Out</button>
+        <div class="role-selector">
+            <span id="current-user-display" style="font-size:0.85rem; color:var(--neon-cyan); margin-right:10px;">Mode: Customer</span>
+            <button onclick="handleNavClick('viewer')" class="role-btn active" id="btn-viewer">Catalog</button>
+            <button onclick="handleNavClick('operator')" class="role-btn" id="btn-operator">Operator Desk</button>
+            <button onclick="handleNavClick('admin')" class="role-btn" id="btn-admin">Admin Portal</button>
+            <button onclick="logoutSession()" class="role-btn" id="btn-logout" style="display:none; background:#ff5555; color:#fff;">Logout</button>
         </div>
     </header>
 
-    <!-- 3. HERO SEARCH & CATEGORY FILTER -->
-    <section class="hero-search-strip" id="catalogSearchStrip">
-        <input type="text" id="catalogSearchInput" placeholder="Search cement, steel bars, mabati, plumbing, paint..." oninput="handleCatalogFilter()">
-        <select id="catalogCategorySelect" onchange="handleCatalogFilter()">
+    <!-- SEARCH & CATEGORY BAR -->
+    <section class="search-section" id="searchBarSection">
+        <input type="text" id="searchInput" placeholder="Search cement, steel bars, mabati, plumbing, paint..." oninput="filterCatalog()">
+        <select id="categoryFilter" onchange="filterCatalog()">
             <option value="All">All Categories</option>
             <option value="Cement">Cement</option>
             <option value="Steel Bars">Steel Bars</option>
@@ -58,76 +47,60 @@
         </select>
     </section>
 
-    <!-- 4. MAIN WORKSPACE VIEWPORT -->
-    <main class="main-viewport">
+    <!-- MAIN APP CONTAINER -->
+    <main class="main-container">
 
-        <!-- VIEW 1: CUSTOMER VIEW / CATALOG & WHATSAPP CART -->
-        <section id="viewViewer" class="section-view active">
-            <div class="catalog-grid-wrapper">
-                <div class="products-grid" id="productsCatalogGrid">
-                    <!-- Cards dynamically rendered here -->
+        <!-- LOGIN VIEW -->
+        <div id="view-login" class="app-view">
+            <div class="login-box">
+                <h2 id="loginTitleHeading">Staff Secure Login</h2>
+                <p id="loginRolePrompt" style="color:var(--text-muted); font-size:0.9rem;">Enter credentials to access terminal</p>
+                <div class="form-group" style="text-align:left;">
+                    <label>Username:</label>
+                    <input type="text" id="loginUser" placeholder="e.g. admin or operator1">
                 </div>
+                <div class="form-group" style="text-align:left;">
+                    <label>Security PIN:</label>
+                    <input type="password" id="loginPin" placeholder="****">
+                </div>
+                <button class="action-btn" onclick="executeLogin()">Authenticate Login</button>
+                <button class="action-btn secondary" onclick="cancelLogin()" style="margin-top:10px;">Cancel / Back</button>
+                <p style="margin-top:15px; font-size:0.8rem;"><a href="#" onclick="triggerPasswordReset()" style="color:var(--neon-cyan);">Forgot Admin Password?</a></p>
+            </div>
+        </div>
 
-                <!-- Live WhatsApp Order List -->
-                <aside class="cart-sidebar-panel">
+        <!-- VIEW 1: CUSTOMER CATALOG & CART -->
+        <div id="view-viewer" class="app-view active">
+            <div class="catalog-layout">
+                <div class="product-grid" id="productGrid"></div>
+                
+                <div class="cart-sidebar">
                     <h3>🛒 Order Inquiry Basket</h3>
-                    <div class="cart-scroll-box" id="cartItemsContainer">
-                        <p style="color:var(--text-muted); font-size:0.9rem; text-align:center;">Your order list is empty. Click "+ Add to Order" on any material.</p>
+                    <div id="cartItems" class="cart-items-box">
+                        <p class="empty-cart">Your list is empty. Add items to order via WhatsApp.</p>
                     </div>
-                    
-                    <div class="cart-total-box">
-                        <p>Estimated Subtotal: <strong id="lblCartSubtotal">KES 0.00</strong></p>
-                        <p>VAT (16% Applied): <strong id="lblCartTax">KES 0.00</strong></p>
-                        <p class="grand-total">Total Estimate: <strong id="lblCartGrandTotal">KES 0.00</strong></p>
+                    <div class="cart-summary">
+                        <p>Subtotal: <span id="cartSubtotal">KES 0.00</span></p>
+                        <p>VAT (16%): <span id="cartVat">KES 0.00</span></p>
+                        <p class="total-row">Total: <span id="cartTotal">KES 0.00</span></p>
                     </div>
-
-                    <button type="button" class="btn-whatsapp" onclick="dispatchWhatsAppOrder()">
-                        Send Order to Rift Metro 📱
-                    </button>
-                </aside>
-            </div>
-        </section>
-
-        <!-- VIEW 2: LOGIN GATEWAY (FOR OPERATOR & ADMIN) -->
-        <section id="viewLogin" class="section-view">
-            <div class="login-dialog-box">
-                <h2 id="loginTitle">Staff Sign In</h2>
-                <p id="loginSubtitle" style="text-align:center; color:var(--text-muted); font-size:0.9rem; margin-bottom:20px;">
-                    Enter your staff credentials to open the terminal
-                </p>
-
-                <div class="form-group">
-                    <label for="txtLoginUser">Staff Username / ID:</label>
-                    <input type="text" id="txtLoginUser" placeholder="e.g. admin or operator1">
+                    <button class="action-btn whatsapp-btn" onclick="sendWhatsAppOrder()">Send Order via WhatsApp 📱</button>
                 </div>
-
-                <div class="form-group">
-                    <label for="txtLoginPin">4-Digit Security PIN:</label>
-                    <input type="password" id="txtLoginPin" placeholder="****">
-                </div>
-
-                <button type="button" class="btn-primary" onclick="submitStaffLogin()" style="margin-top:10px;">
-                    Authenticate & Open
-                </button>
-                <button type="button" class="btn-accent" onclick="navigateToView('viewer')" style="margin-top:8px; background:#94A3B8;">
-                    Cancel & Return
-                </button>
             </div>
-        </section>
+        </div>
 
-        <!-- VIEW 3: OPERATOR POS & CHECKOUT TERMINAL -->
-        <section id="viewOperator" class="section-view">
-            <div class="split-desk-layout">
-                <div class="white-panel-card">
-                    <h2>🛍️ Sales & Receipting Counter</h2>
-                    
-                    <div class="form-grid-row">
+        <!-- VIEW 2: OPERATOR DESK -->
+        <div id="view-operator" class="app-view">
+            <div class="operator-layout">
+                <div class="pos-panel">
+                    <h2>🛍️ Point of Sale & Receipting</h2>
+                    <div class="form-row">
                         <div class="form-group">
-                            <label>Serving Cashier:</label>
-                            <input type="text" id="posCashierName" readonly style="font-weight:700;">
+                            <label>Operator:</label>
+                            <input type="text" id="opActiveName" readonly style="background:#040812; color:var(--neon-cyan);">
                         </div>
                         <div class="form-group">
-                            <label>Customer Payment Mode:</label>
+                            <label>Payment Mode:</label>
                             <select id="posPaymentMode">
                                 <option value="M-PESA">M-PESA (Paybill 880100)</option>
                                 <option value="Cash">Cash</option>
@@ -135,67 +108,56 @@
                             </select>
                         </div>
                     </div>
-
                     <div class="form-group">
-                        <label>Select Item to Sell:</label>
-                        <select id="posItemSelect" onchange="handlePosItemChange()"></select>
+                        <label>Select Item:</label>
+                        <select id="posItemSelect" onchange="updatePosItemDetails()"></select>
                     </div>
-
-                    <div id="posItemNotice" style="font-family:monospace; color:#059669; margin-bottom:12px; font-size:0.9rem;">
-                        Available Stock: --
-                    </div>
-
-                    <div class="form-grid-row">
+                    <div class="inventory-hint" id="posInventoryHint">Stock: -- | Unit: --</div>
+                    <div class="form-row">
                         <div class="form-group">
-                            <label>Quantity to Sell:</label>
-                            <input type="number" id="posQuantityInput" min="1" value="1" oninput="calculatePosNumbers()">
+                            <label>Quantity:</label>
+                            <input type="number" id="posQtyInput" min="1" value="1" oninput="calculatePosTotal()">
                         </div>
                         <div class="form-group">
                             <label>Agreed Price (KES):</label>
-                            <input type="number" id="posAgreedPriceInput" oninput="calculatePosNumbers()">
+                            <input type="number" id="posPriceInput" oninput="calculatePosTotal()">
                         </div>
                     </div>
-
-                    <div id="posPriceFloorAlert" style="color:var(--crimson-red); font-weight:700; font-size:0.85rem; margin-bottom:10px;"></div>
-
-                    <div class="pos-totals-calc">
-                        <p>Line Subtotal: <strong id="lblPosSubtotal">KES 0.00</strong></p>
-                        <p>VAT (16%): <strong id="lblPosVat">KES 0.00</strong></p>
-                        <p class="total-line">Amount Payable: <strong id="lblPosPayable">KES 0.00</strong></p>
+                    <div id="priceWarning" class="warning-text"></div>
+                    
+                    <div class="checkout-summary-box">
+                        <p>Subtotal: <span id="posSubtotal">KES 0.00</span></p>
+                        <p>VAT (16%): <span id="posTax">KES 0.00</span></p>
+                        <p class="total-row">Final Due: <span id="posFinalTotal">KES 0.00</span></p>
                     </div>
-
-                    <button type="button" class="btn-accent" onclick="finalizeCashierSale()">
-                        Complete Sale & Print Thermal Receipt
-                    </button>
+                    <button class="action-btn success-btn" onclick="completeOperatorSale()">Complete Sale & Print Receipt</button>
                 </div>
 
-                <!-- Operator Stock Alerts -->
-                <div class="white-panel-card">
-                    <h3>⚠️ Low Stock Indicators</h3>
-                    <div id="operatorLowStockList" style="max-height:220px; overflow-y:auto;"></div>
-
-                    <h3 style="margin-top:24px;">📋 Recent Order Inquiries</h3>
-                    <div id="operatorInquiryLog" style="max-height:220px; overflow-y:auto;"></div>
+                <div class="quick-stock-panel">
+                    <h3>⚠️ Low Stock Alerts</h3>
+                    <div id="operatorLowStockList" class="mini-list"></div>
+                    <h3 style="margin-top:20px;">📋 Recent Inquiries</h3>
+                    <div id="operatorInquiriesList" class="mini-list"></div>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <!-- VIEW 4: ADMIN MANAGEMENT & PROFIT REPORTS -->
-        <section id="viewAdmin" class="section-view">
-            <div class="role-nav-group" style="margin-bottom:20px;">
-                <button type="button" class="nav-btn active" id="tabBtnStock" onclick="showAdminTab('stock')">📦 Inventory Control</button>
-                <button type="button" class="nav-btn" id="tabBtnReports" onclick="showAdminTab('reports')">📊 Financial & Profit Audit</button>
-                <button type="button" class="nav-btn" id="tabBtnExpenses" onclick="showAdminTab('expenses')">💸 Operating Expenses</button>
-                <button type="button" class="nav-btn" id="tabBtnStaff" onclick="showAdminTab('staff')">👥 Staff Accounts</button>
+        <!-- VIEW 3: ADMIN PORTAL -->
+        <div id="view-admin" class="app-view">
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="switchAdminTab('stock')">📦 Inventory & Stock</button>
+                <button class="tab-btn" onclick="switchAdminTab('reports')">📊 Sales, Profit & Audit</button>
+                <button class="tab-btn" onclick="switchAdminTab('expenses')">💸 Operating Expenses</button>
+                <button class="tab-btn" onclick="switchAdminTab('staff')">👥 Staff Accounts</button>
             </div>
 
-            <!-- TAB 1: STOCK INVENTORY -->
-            <div id="adminTabStock" class="admin-subtab">
-                <div class="white-panel-card">
-                    <h3>Add or Update Hardware Stock</h3>
-                    <div class="form-grid-multi">
-                        <input type="text" id="admItemName" placeholder="Item Name (e.g. Simba Cement 50kg)">
-                        <input type="text" id="admSku" placeholder="SKU Code (e.g. CEM-001)">
+            <!-- TAB 1: STOCK -->
+            <div id="admin-tab-stock" class="admin-tab-content active">
+                <div class="admin-card">
+                    <h3>Add / Update Stock</h3>
+                    <div class="form-grid">
+                        <input type="text" id="admName" placeholder="Item Name (e.g. Simba Cement)">
+                        <input type="text" id="admSku" placeholder="SKU (e.g. CEM-001)">
                         <select id="admCategory">
                             <option value="Cement">Cement</option>
                             <option value="Steel Bars">Steel Bars</option>
@@ -205,191 +167,218 @@
                             <option value="Paint">Paint</option>
                             <option value="General Hardware">General Hardware</option>
                         </select>
-                        <input type="number" id="admSellingPrice" placeholder="Selling Price (KES)">
-                        <input type="number" id="admCostPrice" placeholder="Buying Cost Price (KES)">
-                        <input type="number" id="admFloorPrice" placeholder="Floor Negotiable Price (KES)">
-                        <input type="number" id="admQuantity" placeholder="Current Quantity In Stock">
-                        <input type="number" id="admThreshold" placeholder="Low Stock Threshold Limit">
-                        <input type="text" id="admUnit" placeholder="Unit (bag, pcs, kg, roll)">
+                        <input type="number" id="admPrice" placeholder="Selling Price (KES)">
+                        <input type="number" id="admCostPrice" placeholder="Cost Price (KES)">
+                        <input type="number" id="admMinPrice" placeholder="Floor Price">
+                        <input type="number" id="admQty" placeholder="Quantity">
+                        <input type="number" id="admThreshold" placeholder="Low Threshold">
+                        <input type="text" id="admUnit" placeholder="Unit (bag, pcs, kg)">
                     </div>
-                    <button type="button" class="btn-primary" onclick="adminCommitStock()">Save Hardware Item</button>
+                    <button class="action-btn" onclick="adminSaveStock()">Save Stock Item</button>
                 </div>
 
-                <div class="white-panel-card">
-                    <h3>Live Store Inventory</h3>
+                <div class="admin-card">
+                    <h3>Active Inventory</h3>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
                                     <th>SKU</th>
-                                    <th>Product Name</th>
+                                    <th>Name</th>
                                     <th>Category</th>
                                     <th>Price</th>
-                                    <th>Buying Cost</th>
-                                    <th>Remaining Qty</th>
+                                    <th>Cost</th>
+                                    <th>Qty Left</th>
                                     <th>Threshold</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
-                            <tbody id="tblAdminStockBody"></tbody>
+                            <tbody id="adminStockBody"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-            <!-- TAB 2: REPORTS & P&L -->
-            <div id="adminTabReports" class="admin-subtab" style="display:none;">
-                <div class="financial-kpi-grid">
-                    <div class="kpi-card green">
-                        <small>Total Gross Sales</small>
-                        <h3 id="kpiGrossRev">KES 0.00</h3>
-                    </div>
-                    <div class="kpi-card red">
-                        <small>Recorded Operating Expenses</small>
-                        <h3 id="kpiExpenses">KES 0.00</h3>
-                    </div>
-                    <div class="kpi-card gold">
-                        <small>Estimated Net Profit</small>
-                        <h3 id="kpiNetProfit">KES 0.00</h3>
+            <!-- TAB 2: REPORTS -->
+            <div id="admin-tab-reports" class="admin-tab-content">
+                <div class="reports-toolbar">
+                    <button class="action-btn" onclick="exportReport('csv')">Download CSV Sheet</button>
+                    <button class="action-btn secondary" onclick="exportReport('print')">Print / PDF Report</button>
+                </div>
+
+                <div class="admin-card" style="border-color:var(--neon-cyan);">
+                    <h3 style="color:var(--neon-cyan);">💰 Financial Summary & Profit Report</h3>
+                    <div class="form-row" style="text-align:center;">
+                        <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px;">
+                            <small>Gross Revenue</small>
+                            <h3 id="repGrossRev" style="color:var(--neon-green); margin:4px 0;">KES 0.00</h3>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px;">
+                            <small>Total Expenditures</small>
+                            <h3 id="repTotalExp" style="color:#ff6b81; margin:4px 0;">KES 0.00</h3>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px;">
+                            <small>Estimated Net Profit</small>
+                            <h3 id="repNetProfit" style="color:var(--neon-cyan); margin:4px 0;">KES 0.00</h3>
+                        </div>
                     </div>
                 </div>
 
-                <div class="white-panel-card">
-                    <h3>Sales Audit Filter</h3>
-                    <div class="form-grid-multi">
-                        <select id="filterReportCategory" onchange="renderAdminReports()">
-                            <option value="All">All Categories</option>
-                            <option value="Cement">Cement</option>
-                            <option value="Steel Bars">Steel Bars</option>
-                            <option value="Mabati">Mabati</option>
-                            <option value="Plumbing">Plumbing</option>
-                            <option value="Electrical Supplies">Electrical Supplies</option>
-                            <option value="Paint">Paint</option>
-                            <option value="General Hardware">General Hardware</option>
-                        </select>
-                        <input type="date" id="filterReportStart" onchange="renderAdminReports()">
-                        <input type="date" id="filterReportEnd" onchange="renderAdminReports()">
-                        <button type="button" class="btn-primary" onclick="exportSalesReportCsv()">Download CSV Sheet</button>
-                    </div>
+                <div class="filter-bar">
+                    <label>Filter:</label>
+                    <select id="repFilterCat" onchange="renderReportsTables()">
+                        <option value="All">All Categories</option>
+                        <option value="Cement">Cement</option>
+                        <option value="Steel Bars">Steel Bars</option>
+                        <option value="Mabati">Mabati</option>
+                        <option value="Plumbing">Plumbing</option>
+                        <option value="Electrical Supplies">Electrical Supplies</option>
+                        <option value="Paint">Paint</option>
+                        <option value="General Hardware">General Hardware</option>
+                    </select>
+                    <select id="repFilterOperator" onchange="renderReportsTables()">
+                        <option value="All">All Operators</option>
+                    </select>
+                    <input type="date" id="repFilterStart" onchange="renderReportsTables()">
+                    <input type="date" id="repFilterEnd" onchange="renderReportsTables()">
+                    <button onclick="resetFilters()" style="background:#222; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">Reset</button>
+                </div>
 
+                <div class="admin-card">
+                    <h3>Sales Audit Records</h3>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
                                     <th>Date</th>
-                                    <th>Cashier</th>
-                                    <th>Product</th>
+                                    <th>Operator</th>
+                                    <th>Item</th>
                                     <th>Category</th>
                                     <th>Qty</th>
-                                    <th>Payment</th>
+                                    <th>Mode</th>
                                     <th>Total Paid</th>
                                 </tr>
                             </thead>
-                            <tbody id="tblSalesReportBody"></tbody>
+                            <tbody id="salesReportBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="admin-card">
+                    <h3>Low Stock Alert List</h3>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Name</th>
+                                    <th>Qty Left</th>
+                                    <th>Threshold</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lowStockReportBody"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-            <!-- TAB 3: OPERATING EXPENSES -->
-            <div id="adminTabExpenses" class="admin-subtab" style="display:none;">
-                <div class="white-panel-card">
-                    <h3>Record Store Expenditure</h3>
-                    <div class="form-grid-multi">
-                        <select id="expCategory">
-                            <option value="Staff Salary">Staff Salary</option>
+            <!-- TAB 3: EXPENSES -->
+            <div id="admin-tab-expenses" class="admin-tab-content">
+                <div class="admin-card">
+                    <h3>Record Store Expense</h3>
+                    <div class="form-grid">
+                        <select id="expType">
+                            <option value="Salary">Staff Salary</option>
+                            <option value="Rent">Shop Rent</option>
                             <option value="Casual Labor">Casual Labor</option>
-                            <option value="Shop Rent">Shop Rent</option>
-                            <option value="Transport & Delivery">Transport & Delivery</option>
-                            <option value="Electricity & Water">Electricity & Water</option>
-                            <option value="Other">Other Miscellaneous</option>
+                            <option value="Transport">Transport / Delivery</option>
+                            <option value="Utilities">Utilities (Power/Water)</option>
+                            <option value="Other">Other Expenses</option>
                         </select>
                         <input type="number" id="expAmount" placeholder="Amount (KES)">
-                        <input type="text" id="expNotes" placeholder="Description/Remarks (e.g. Offloading ballast)">
+                        <input type="text" id="expDesc" placeholder="Description">
                     </div>
-                    <button type="button" class="btn-accent" onclick="recordStoreExpense()">Commit Expense Entry</button>
+                    <button class="action-btn" onclick="recordExpense()">Record Expense</button>
                 </div>
 
-                <div class="white-panel-card">
-                    <h3>Expense Ledger</h3>
+                <div class="admin-card">
+                    <h3>Expenditure Ledger</h3>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
                                     <th>Date</th>
-                                    <th>Category</th>
+                                    <th>Type</th>
                                     <th>Amount</th>
-                                    <th>Remarks</th>
-                                    <th>Recorded By</th>
+                                    <th>Description</th>
+                                    <th>By</th>
                                 </tr>
                             </thead>
-                            <tbody id="tblExpenseBody"></tbody>
+                            <tbody id="expensesTableBody"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-            <!-- TAB 4: STAFF USERS -->
-            <div id="adminTabStaff" class="admin-subtab" style="display:none;">
-                <div class="white-panel-card">
-                    <h3>Create or Update Staff Account</h3>
-                    <div class="form-grid-multi">
-                        <input type="text" id="newStaffUser" placeholder="Username (e.g. cashier2)">
-                        <input type="text" id="newStaffName" placeholder="Full Name">
-                        <input type="password" id="newStaffPin" placeholder="4-Digit Security PIN">
-                        <select id="newStaffRole">
-                            <option value="operator">Operator (Cashier)</option>
-                            <option value="admin">Administrator</option>
+            <!-- TAB 4: STAFF -->
+            <div id="admin-tab-staff" class="admin-tab-content">
+                <div class="admin-card">
+                    <h3>Manage Staff Accounts</h3>
+                    <div class="form-grid">
+                        <input type="text" id="staffUsername" placeholder="Username">
+                        <input type="text" id="staffName" placeholder="Full Name">
+                        <input type="password" id="staffPin" placeholder="4-digit PIN">
+                        <select id="staffRole">
+                            <option value="operator">Operator</option>
+                            <option value="admin">Admin</option>
                         </select>
                     </div>
-                    <button type="button" class="btn-primary" onclick="adminSaveStaffUser()">Save Staff Account</button>
+                    <button class="action-btn" onclick="createStaffAccount()">Save Staff Account</button>
                 </div>
 
-                <div class="white-panel-card">
-                    <h3>Active Staff Register</h3>
+                <div class="admin-card">
+                    <h3>Staff Register</h3>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
                                     <th>Username</th>
-                                    <th>Full Name</th>
+                                    <th>Name</th>
                                     <th>Role</th>
                                 </tr>
                             </thead>
-                            <tbody id="tblStaffBody"></tbody>
+                            <tbody id="staffTableBody"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
-        </section>
+        </div>
 
     </main>
 
-    <!-- 5. THERMAL PRINT RECEIPT DIALOG -->
-    <div id="receiptModalBox" class="receipt-overlay">
-        <div class="receipt-sheet" id="printableReceiptArea">
-            <div class="shop-title">
-                <h3>RIFT METRO HARDWARE</h3>
-                <div style="font-size:0.8rem; margin-top:4px;">Next to Sakinya Motors, Nakuru</div>
-                <div style="font-size:0.8rem;">Tel: 0716117761 / 0790453707</div>
-                <div style="font-size:0.8rem;">Paybill: 880100 | A/C: 117761</div>
+    <!-- THERMAL RECEIPT MODAL -->
+    <div id="receiptModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:99999; align-items:center; justify-content:center;">
+        <div class="receipt-box">
+            <div class="receipt-header">
+                <h3 style="margin:0; color:#070a12;">RIFT METRO HARDWARE</h3>
+                <p style="margin:2px 0; font-size:0.8rem;">Next to Sakinya Motors, Nakuru</p>
+                <p style="margin:2px 0; font-size:0.8rem;">Tel: 0716117761 / 0790453707</p>
+                <p style="margin:2px 0; font-size:0.8rem;">Paybill: 880100 | A/C: 117761</p>
             </div>
-
-            <div id="receiptDetailsBody" style="font-size:0.85rem; line-height:1.5;"></div>
-
-            <div style="text-align:center; border-top:2px dashed #000; margin-top:14px; padding-top:8px; font-size:0.8rem;">
-                <p style="margin:2px 0;">Goods once sold are not returnable.</p>
-                <p style="margin:2px 0;"><strong>Quality Materials • Real Support</strong></p>
+            <div id="receiptDetails" style="font-size:0.85rem; line-height:1.5;"></div>
+            <div style="text-align:center; border-top:2px dashed #333; margin-top:15px; padding-top:10px; font-size:0.8rem;">
+                <p>Goods once sold are not returnable.</p>
+                <p><strong>Thank you for your business!</strong></p>
             </div>
-
-            <div class="no-print" style="margin-top:16px; display:flex; gap:8px;">
-                <button type="button" class="btn-primary" onclick="window.print()">Print</button>
-                <button type="button" class="btn-accent" onclick="document.getElementById('receiptModalBox').style.display='none'">Close</button>
+            <div style="text-align:center; margin-top:15px;">
+                <button onclick="window.print()" class="action-btn" style="width:auto; display:inline-block; margin-right:8px;">Print</button>
+                <button onclick="closeReceiptModal()" class="action-btn secondary" style="width:auto; display:inline-block;">Close</button>
             </div>
         </div>
     </div>
 
-    <script src="app.js?v=2"></script>
+    <script src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
