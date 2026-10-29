@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function checkConnectionStatus() {
     const indicator = document.getElementById('connection-status');
+    if (!indicator) return;
     if (navigator.onLine) {
         indicator.textContent = "Online Synced";
         indicator.className = "badge online";
@@ -35,13 +36,39 @@ async function checkConnectionStatus() {
 }
 
 // ==========================================
-// AUTHENTICATION & ROLE SWITCHING
+// AUTHENTICATION & NAVIGATION ROUTING
 // ==========================================
+function handleNavClick(role) {
+    if (role === 'viewer') {
+        switchRole('viewer');
+        return;
+    }
+
+    // If operator or admin is requested, check if already logged in with correct permissions
+    if (activeUser && ((role === 'operator' && (activeUser.role === 'operator' || activeUser.role === 'admin')) || (role === 'admin' && activeUser.role === 'admin'))) {
+        switchRole(role);
+    } else {
+        // Prompt security login modal
+        promptLogin(role);
+    }
+}
+
 function promptLogin(role) {
     document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
     document.getElementById('view-login').classList.add('active');
-    document.getElementById('loginRolePrompt').textContent = `Please enter credentials for: ${role.toUpperCase()}`;
+    document.getElementById('searchBarSection').style.display = 'none';
+    document.getElementById('loginRolePrompt').textContent = `Please enter credentials for: ${role.toUpperCase()} portal`;
     document.getElementById('loginUser').dataset.targetRole = role;
+    document.getElementById('loginUser').value = '';
+    document.getElementById('loginPin').value = '';
+}
+
+function cancelLogin() {
+    if (activeUser) {
+        switchRole(activeUser.role === 'admin' ? 'admin' : 'operator');
+    } else {
+        switchRole('viewer');
+    }
 }
 
 async function executeLogin() {
@@ -65,22 +92,16 @@ async function executeLogin() {
     document.getElementById('current-user-display').textContent = `User: ${data.full_name} (${data.role.toUpperCase()})`;
     document.getElementById('btn-logout').style.display = 'inline-block';
 
-    if (data.role === 'admin') {
-        switchRole('admin');
-    } else {
-        switchRole('operator');
-    }
+    switchRole(data.role === 'admin' ? 'admin' : 'operator');
 }
 
 function triggerPasswordReset() {
-    const username = prompt("Enter your Admin Username to initiate password recovery:");
+    const username = prompt("Enter your Admin Username to initiate recovery reference:");
     if (!username) return;
-    
-    // In a production setup, this would dispatch a recovery email. Here we provide secure admin recovery prompt via Supabase check.
     if (username === 'admin') {
         alert("To reset the admin password, go to your Supabase SQL Editor and execute:\nUPDATE staff_users SET pin = 'NEW_PIN' WHERE username = 'admin';");
     } else {
-        alert("Please contact the primary system administrator to reset your PIN.");
+        alert("Please contact the primary system administrator.");
     }
 }
 
@@ -161,8 +182,10 @@ function renderViewerCatalog() {
     if (!grid) return;
     grid.innerHTML = '';
 
-    const search = document.getElementById('searchInput').value.toLowerCase();
-    const cat = document.getElementById('categoryFilter').value;
+    const searchElem = document.getElementById('searchInput');
+    const catElem = document.getElementById('categoryFilter');
+    const search = searchElem ? searchElem.value.toLowerCase() : '';
+    const cat = catElem ? catElem.value : 'All';
 
     const filtered = catalogProducts.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search);
@@ -246,7 +269,6 @@ async function sendWhatsAppOrder() {
     });
     let total = subtotal * 1.16;
 
-    // Log the inquiry into cloud database for tracking
     await _supabase.from('customer_inquiries').insert([{
         customer_details: 'WhatsApp Customer',
         order_summary: summaryText,
@@ -276,7 +298,9 @@ function populateOperatorDropdown() {
 }
 
 function updatePosItemDetails() {
-    const sku = document.getElementById('posItemSelect').value;
+    const select = document.getElementById('posItemSelect');
+    if (!select || !select.value) return;
+    const sku = select.value;
     const product = catalogProducts.find(p => p.sku === sku);
     if (!product) return;
     document.getElementById('posInventoryHint').textContent = `Stock: ${product.quantity} ${product.unit} | Floor Price: KES ${product.min_price}`;
@@ -285,7 +309,9 @@ function updatePosItemDetails() {
 }
 
 function calculatePosTotal() {
-    const sku = document.getElementById('posItemSelect').value;
+    const select = document.getElementById('posItemSelect');
+    if (!select || !select.value) return;
+    const sku = select.value;
     const product = catalogProducts.find(p => p.sku === sku);
     const qty = parseInt(document.getElementById('posQtyInput').value) || 0;
     const price = parseFloat(document.getElementById('posPriceInput').value) || 0;
@@ -304,7 +330,9 @@ function calculatePosTotal() {
 }
 
 async function completeOperatorSale() {
-    const sku = document.getElementById('posItemSelect').value;
+    const select = document.getElementById('posItemSelect');
+    if (!select || !select.value) return alert('Please select an item.');
+    const sku = select.value;
     const product = catalogProducts.find(p => p.sku === sku);
     const qtySold = parseInt(document.getElementById('posQtyInput').value) || 0;
     const unitPrice = parseFloat(document.getElementById('posPriceInput').value) || 0;
@@ -319,10 +347,8 @@ async function completeOperatorSale() {
     let totalPaid = subtotal + tax;
     let newQty = product.quantity - qtySold;
 
-    // Update Inventory
     await _supabase.from('hardware_inventory').update({ quantity: newQty }).eq('sku', sku);
     
-    // Log Sales Record
     await _supabase.from('sales_reports').insert([{
         operator_name: operatorName,
         item_name: product.name,
@@ -341,7 +367,6 @@ async function completeOperatorSale() {
     populateOperatorDropdown();
     renderOperatorLowStock();
 
-    // Show Thermal Receipt Modal
     showThermalReceipt({
         operator: operatorName,
         item: product.name,
@@ -380,7 +405,7 @@ function renderOperatorLowStock() {
     if (!container) return;
     container.innerHTML = '';
     const low = catalogProducts.filter(p => p.quantity <= p.threshold);
-    if (low.length === 0) { container.innerHTML = `<p class="ok-msg">No low stock items.</p>`; return; }
+    if (low.length === 0) { container.innerHTML = `<p class="ok-msg" style="color:#00ff88; font-size:0.85rem;">No low stock items.</p>`; return; }
     low.forEach(i => {
         container.innerHTML += `<div class="mini-row"><span>${i.name}</span><span class="badge low">Left: ${i.quantity}</span></div>`;
     });
@@ -390,7 +415,7 @@ function renderOperatorInquiries(inquiriesList) {
     const container = document.getElementById('operatorInquiriesList');
     if (!container) return;
     container.innerHTML = '';
-    if (!inquiriesList || inquiriesList.length === 0) { container.innerHTML = `<p class="ok-msg">No recent inquiries.</p>`; return; }
+    if (!inquiriesList || inquiriesList.length === 0) { container.innerHTML = `<p class="ok-msg" style="color:var(--text-muted); font-size:0.85rem;">No recent inquiries.</p>`; return; }
     inquiriesList.slice(0, 5).forEach(inq => {
         container.innerHTML += `<div class="mini-row"><span>${inq.order_summary}</span><strong>KES ${inq.total_estimated.toLocaleString()}</strong></div>`;
     });
@@ -399,6 +424,19 @@ function renderOperatorInquiries(inquiriesList) {
 // ==========================================
 // 3. ADMIN PORTAL & P&L / FILTERS / STAFF
 // ==========================================
+function switchAdminTab(tabName) {
+    document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+    document.getElementById(`admin-tab-${tabName}`).classList.add('active');
+    event.currentTarget.classList.add('active');
+
+    if (tabName === 'stock') renderAdminStockTable();
+    if (tabName === 'reports') renderReportsTables();
+    if (tabName === 'expenses') renderExpensesTable();
+    if (tabName === 'staff') renderStaffTable();
+}
+
 async function adminSaveStock() {
     const name = document.getElementById('admName').value.trim();
     const sku = document.getElementById('admSku').value.trim();
@@ -451,10 +489,15 @@ function populateReportOperatorDropdown() {
 }
 
 function renderReportsTables() {
-    const catFilter = document.getElementById('repFilterCat').value;
-    const opFilter = document.getElementById('repFilterOperator').value;
-    const startDate = document.getElementById('repFilterStart').value;
-    const endDate = document.getElementById('repFilterEnd').value;
+    const catFilterElem = document.getElementById('repFilterCat');
+    const opFilterElem = document.getElementById('repFilterOperator');
+    const startElem = document.getElementById('repFilterStart');
+    const endElem = document.getElementById('repFilterEnd');
+
+    const catFilter = catFilterElem ? catFilterElem.value : 'All';
+    const opFilter = opFilterElem ? opFilterElem.value : 'All';
+    const startDate = startElem ? startElem.value : '';
+    const endDate = endElem ? endElem.value : '';
 
     let filteredSales = salesLogs.filter(s => {
         let matchCat = (catFilter === 'All' || s.category === catFilter);
@@ -466,7 +509,6 @@ function renderReportsTables() {
         return matchCat && matchOp && matchDate;
     });
 
-    // Render Sales Table
     const salesBody = document.getElementById('salesReportBody');
     if (salesBody) {
         salesBody.innerHTML = '';
@@ -485,16 +527,14 @@ function renderReportsTables() {
         });
     }
 
-    // Profit & Loss Calculations
     let grossRev = filteredSales.reduce((acc, curr) => acc + curr.total_paid, 0);
     let totalExp = expensesLogs.reduce((acc, curr) => acc + curr.amount, 0);
     let netProfit = grossRev - totalExp;
 
-    document.getElementById('repGrossRev').textContent = `KES ${grossRev.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-    document.getElementById('repTotalExp').textContent = `KES ${totalExp.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-    document.getElementById('repNetProfit').textContent = `KES ${netProfit.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    if(document.getElementById('repGrossRev')) document.getElementById('repGrossRev').textContent = `KES ${grossRev.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    if(document.getElementById('repTotalExp')) document.getElementById('repTotalExp').textContent = `KES ${totalExp.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    if(document.getElementById('repNetProfit')) document.getElementById('repNetProfit').textContent = `KES ${netProfit.toLocaleString(undefined, {minimumFractionDigits:2})}`;
 
-    // Low Stock Report
     const lowBody = document.getElementById('lowStockReportBody');
     if (lowBody) {
         lowBody.innerHTML = '';
@@ -510,10 +550,10 @@ function renderReportsTables() {
 }
 
 function resetFilters() {
-    document.getElementById('repFilterCat').value = 'All';
-    document.getElementById('repFilterOperator').value = 'All';
-    document.getElementById('repFilterStart').value = '';
-    document.getElementById('repFilterEnd').value = '';
+    if(document.getElementById('repFilterCat')) document.getElementById('repFilterCat').value = 'All';
+    if(document.getElementById('repFilterOperator')) document.getElementById('repFilterOperator').value = 'All';
+    if(document.getElementById('repFilterStart')) document.getElementById('repFilterStart').value = '';
+    if(document.getElementById('repFilterEnd')) document.getElementById('repFilterEnd').value = '';
     renderReportsTables();
 }
 
