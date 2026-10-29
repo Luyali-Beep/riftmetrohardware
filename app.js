@@ -10,10 +10,9 @@ try {
         _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     }
 } catch (e) {
-    console.warn("Supabase init failed. Operating with resilient local fallback.");
+    console.warn("Supabase init failed. Operating with local fallback.");
 }
 
-// Built-in starter products matching the poster
 const DEFAULT_INVENTORY = [
     { sku: "CEM-001", name: "Simba Cement 50kg", category: "Cement", price: 850, cost_price: 750, min_price: 820, quantity: 150, threshold: 30, unit: "bag" },
     { sku: "STL-012", name: "D12 High-Yield Steel Bars", category: "Steel Bars", price: 1650, cost_price: 1450, min_price: 1580, quantity: 95, threshold: 25, unit: "pcs" },
@@ -27,7 +26,6 @@ const DEFAULT_STAFF = [
     { username: "operator1", pin: "1111", role: "operator", full_name: "Desk Cashier" }
 ];
 
-// App Memory State
 let inventory = [];
 let staff = [];
 let sales = [];
@@ -37,163 +35,145 @@ let cart = [];
 let currentUser = null; 
 let pendingLoginRole = null;
 
-// ==========================================
-// 1. BOOTSTRAPPER
-// ==========================================
 document.addEventListener("DOMContentLoaded", async () => {
-    // 1. Load Local Storage Caches
     inventory = JSON.parse(localStorage.getItem("rm_inventory")) || DEFAULT_INVENTORY;
     staff = JSON.parse(localStorage.getItem("rm_staff")) || DEFAULT_STAFF;
     sales = JSON.parse(localStorage.getItem("rm_sales")) || [];
     expenses = JSON.parse(localStorage.getItem("rm_expenses")) || [];
     inquiries = JSON.parse(localStorage.getItem("rm_inquiries")) || [];
 
-    // 2. Fetch from Supabase if online
     await syncAllFromCloud();
-
-    // 3. Render Initial View
-    renderCatalogGrid();
-    renderCartList();
+    renderViewerCatalog();
+    renderOrderCart();
 });
 
 async function syncAllFromCloud() {
     if (!_supabase || !navigator.onLine) return;
     try {
         const { data: inv } = await _supabase.from("hardware_inventory").select("*");
-        if (inv && inv.length > 0) {
-            inventory = inv;
-            localStorage.setItem("rm_inventory", JSON.stringify(inventory));
-        }
-
+        if (inv && inv.length > 0) { inventory = inv; localStorage.setItem("rm_inventory", JSON.stringify(inventory)); }
         const { data: stf } = await _supabase.from("staff_users").select("*");
-        if (stf && stf.length > 0) {
-            staff = stf;
-            localStorage.setItem("rm_staff", JSON.stringify(staff));
-        }
-
+        if (stf && stf.length > 0) { staff = stf; localStorage.setItem("rm_staff", JSON.stringify(staff)); }
         const { data: sls } = await _supabase.from("sales_reports").select("*").order("created_at", { ascending: false });
-        if (sls) {
-            sales = sls;
-            localStorage.setItem("rm_sales", JSON.stringify(sales));
-        }
-
+        if (sls) { sales = sls; localStorage.setItem("rm_sales", JSON.stringify(sales)); }
         const { data: exp } = await _supabase.from("shop_expenses").select("*").order("created_at", { ascending: false });
-        if (exp) {
-            expenses = exp;
-            localStorage.setItem("rm_expenses", JSON.stringify(expenses));
-        }
+        if (exp) { expenses = exp; localStorage.setItem("rm_expenses", JSON.stringify(expenses)); }
     } catch (e) {
         console.warn("Cloud sync deferred:", e);
     }
 }
 
-// ==========================================
-// 2. NAVIGATION & LOGIN HANDLERS (GUARANTEED WORKING)
-// ==========================================
-function navigateToView(targetView) {
-    // If public catalog, let anyone view
-    if (targetView === "viewer") {
-        displaySection("viewViewer");
-        setActiveNavButton("btnRoleViewer");
-        document.getElementById("catalogSearchStrip").style.display = "flex";
-        renderCatalogGrid();
+// NAVIGATION ROUTING
+function handleNavClick(role) {
+    if (role === 'viewer') {
+        switchRole('viewer');
         return;
     }
+    if (currentUser && ((role === 'operator' && (currentUser.role === 'operator' || currentUser.role === 'admin')) || (role === 'admin' && currentUser.role === 'admin'))) {
+        switchRole(role);
+    } else {
+        promptLogin(role);
+    }
+}
 
-    // If Operator or Admin is requested, verify login session
+function promptLogin(role) {
+    document.querySelectorAll(".app-view").forEach(v => v.classList.remove("active"));
+    document.getElementById("view-login").classList.add("active");
+    document.getElementById("searchBarSection").style.display = "none";
+    document.getElementById("loginRolePrompt").textContent = `Enter credentials for ${role.toUpperCase()} terminal`;
+    document.getElementById("loginUser").dataset.targetRole = role;
+    document.getElementById("loginUser").value = "";
+    document.getElementById("loginPin").value = "";
+}
+
+function cancelLogin() {
     if (currentUser) {
-        if (targetView === "operator") {
-            displaySection("viewOperator");
-            setActiveNavButton("btnRoleOperator");
-            document.getElementById("catalogSearchStrip").style.display = "none";
-            initOperatorDesk();
-            return;
-        }
-        if (targetView === "admin") {
-            if (currentUser.role === "admin") {
-                displaySection("viewAdmin");
-                setActiveNavButton("btnRoleAdmin");
-                document.getElementById("catalogSearchStrip").style.display = "none";
-                initAdminPortal();
-                return;
-            } else {
-                alert("Permission Denied: Administrator clearance required.");
-                return;
-            }
-        }
+        switchRole(currentUser.role === 'admin' ? 'admin' : 'operator');
+    } else {
+        switchRole('viewer');
     }
-
-    // If not logged in, show Login Screen
-    pendingLoginRole = targetView;
-    displaySection("viewLogin");
-    setActiveNavButton(targetView === "admin" ? "btnRoleAdmin" : "btnRoleOperator");
-    document.getElementById("catalogSearchStrip").style.display = "none";
-    document.getElementById("loginTitle").textContent = targetView === "admin" ? "Admin Security Terminal" : "Operator Desk Terminal";
-    document.getElementById("txtLoginUser").value = "";
-    document.getElementById("txtLoginPin").value = "";
 }
 
-function displaySection(viewId) {
-    document.querySelectorAll(".section-view").forEach(sec => sec.classList.remove("active"));
-    const activeSec = document.getElementById(viewId);
-    if (activeSec) activeSec.classList.add("active");
-}
+async function executeLogin() {
+    const user = document.getElementById("loginUser").value.trim().toLowerCase();
+    const pin = document.getElementById("loginPin").value.trim();
+    const targetRole = document.getElementById("loginUser").dataset.targetRole;
 
-function setActiveNavButton(btnId) {
-    document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.remove("active"));
-    const activeBtn = document.getElementById(btnId);
-    if (activeBtn) activeBtn.classList.add("active");
-}
-
-function submitStaffLogin() {
-    const username = document.getElementById("txtLoginUser").value.trim().toLowerCase();
-    const pin = document.getElementById("txtLoginPin").value.trim();
-
-    const user = staff.find(u => u.username.toLowerCase() === username && u.pin === pin);
-
-    if (!user) {
-        alert("Invalid staff username or security PIN. Default is admin / 1234");
+    const staffMember = staff.find(u => u.username.toLowerCase() === user && u.pin === pin);
+    if (!staffMember) {
+        alert("Invalid Username or Security PIN.");
+        return;
+    }
+    if (targetRole === 'admin' && staffMember.role !== 'admin') {
+        alert("Access Denied: Requires Administrator privileges.");
         return;
     }
 
-    if (pendingLoginRole === "admin" && user.role !== "admin") {
-        alert("Access Denied: You do not have Administrator permissions.");
-        return;
-    }
+    currentUser = staffMember;
+    document.getElementById("current-user-display").textContent = `User: ${staffMember.full_name} (${staffMember.role.toUpperCase()})`;
+    document.getElementById("btn-logout").style.display = "inline-block";
 
-    currentUser = user;
-    document.getElementById("activeUserGreeting").textContent = `${user.full_name} (${user.role.toUpperCase()})`;
-    document.getElementById("btnLogout").style.display = "inline-flex";
-
-    navigateToView(user.role === "admin" ? "admin" : "operator");
+    switchRole(staffMember.role === 'admin' ? 'admin' : 'operator');
 }
 
-function logoutCurrentSession() {
+function logoutSession() {
     currentUser = null;
-    document.getElementById("activeUserGreeting").textContent = "Customer View";
-    document.getElementById("btnLogout").style.display = "none";
-    navigateToView("viewer");
+    document.getElementById("current-user-display").textContent = "Mode: Customer";
+    document.getElementById("btn-logout").style.display = "none";
+    switchRole("viewer");
 }
 
-// ==========================================
-// 3. CATALOG & WHATSAPP BASKET
-// ==========================================
-function renderCatalogGrid() {
-    const grid = document.getElementById("productsCatalogGrid");
+function switchRole(role) {
+    document.querySelectorAll(".app-view").forEach(v => v.classList.remove("active"));
+    document.querySelectorAll(".role-btn").forEach(b => b.classList.remove("active"));
+
+    if (role === 'viewer') {
+        document.getElementById("view-viewer").classList.add("active");
+        document.getElementById("btn-viewer").classList.add("active");
+        document.getElementById("searchBarSection").style.display = "flex";
+        renderViewerCatalog();
+    } else {
+        document.getElementById("searchBarSection").style.display = "none";
+        if (role === 'operator') {
+            document.getElementById("view-operator").classList.add("active");
+            document.getElementById("btn-operator").classList.add("active");
+            document.getElementById("opActiveName").value = currentUser ? currentUser.full_name : 'Cashier';
+            populateOperatorDropdown();
+            renderOperatorLowStock();
+            renderOperatorInquiries();
+        } else if (role === 'admin') {
+            document.getElementById("view-admin").classList.add("active");
+            document.getElementById("btn-admin").classList.add("active");
+            renderAdminStockTable();
+            renderReportsTables();
+            renderExpensesTable();
+            renderStaffTable();
+            populateReportOperatorDropdown();
+        }
+    }
+}
+
+function triggerPasswordReset() {
+    alert("To reset the admin password, execute in Supabase SQL Editor:\nUPDATE staff_users SET pin = 'NEW_PIN' WHERE username = 'admin';");
+}
+
+// CATALOG & CART
+function renderViewerCatalog() {
+    const grid = document.getElementById("productGrid");
     if (!grid) return;
     grid.innerHTML = "";
 
-    const query = (document.getElementById("catalogSearchInput")?.value || "").toLowerCase();
-    const category = document.getElementById("catalogCategorySelect")?.value || "All";
+    const query = (document.getElementById("searchInput")?.value || "").toLowerCase();
+    const cat = document.getElementById("categoryFilter")?.value || "All";
 
-    const filtered = inventory.filter(item => {
-        const matchesQuery = item.name.toLowerCase().includes(query) || item.sku.toLowerCase().includes(query);
-        const matchesCategory = (category === "All" || item.category === category);
-        return matchesQuery && matchesCategory;
+    const filtered = inventory.filter(p => {
+        const matchesQuery = p.name.toLowerCase().includes(query) || p.sku.toLowerCase().includes(query);
+        const matchesCat = (cat === "All" || p.category === cat);
+        return matchesQuery && matchesCat;
     });
 
     if (filtered.length === 0) {
-        grid.innerHTML = `<p style="grid-column: 1/-1; text-align:center; color:var(--text-muted); padding:30px;">No hardware materials found matching your search.</p>`;
+        grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; color:var(--text-muted); padding:30px;">No hardware items found.</p>`;
         return;
     }
 
@@ -202,197 +182,142 @@ function renderCatalogGrid() {
         grid.innerHTML += `
             <div class="product-card">
                 <div>
-                    <div class="card-top">
-                        <span class="sku-tag">${item.sku}</span>
-                        <span class="stock-pill ${isLow ? 'low-stock' : 'in-stock'}">${isLow ? 'Low Stock' : 'In Stock'}</span>
+                    <div class="card-header">
+                        <span class="sku-badge">${item.sku}</span>
+                        <span class="badge ${isLow ? 'low' : 'ok'}">${isLow ? 'Low Stock' : 'In Stock'}</span>
                     </div>
                     <h4>${item.name}</h4>
-                    <div class="category-subtitle">${item.category}</div>
+                    <p class="category-text">${item.category}</p>
                 </div>
                 <div>
-                    <div class="price-row">KES ${item.price.toLocaleString()} <small>/ ${item.unit}</small></div>
-                    <button type="button" class="btn-primary" onclick="addToOrderCart('${item.sku}')">+ Add to Order</button>
+                    <div class="price-box">KES ${item.price.toLocaleString()} <small>/ ${item.unit}</small></div>
+                    <button class="action-btn" onclick="addToOrderCart('${item.sku}')">+ Add to Order</button>
                 </div>
             </div>
         `;
     });
 }
 
-function handleCatalogFilter() {
-    renderCatalogGrid();
-}
+function filterCatalog() { renderViewerCatalog(); }
 
 function addToOrderCart(sku) {
     const item = inventory.find(p => p.sku === sku);
     if (!item) return;
-
     const existing = cart.find(c => c.sku === sku);
-    if (existing) {
-        existing.qty += 1;
-    } else {
-        cart.push({ sku: item.sku, name: item.name, price: item.price, unit: item.unit, qty: 1 });
-    }
-    renderCartList();
+    if (existing) existing.qty += 1;
+    else cart.push({ sku: item.sku, name: item.name, price: item.price, unit: item.unit, qty: 1 });
+    renderOrderCart();
 }
 
-function removeFromOrderCart(index) {
-    cart.splice(index, 1);
-    renderCartList();
-}
+function removeFromCart(idx) { cart.splice(idx, 1); renderOrderCart(); }
 
-function renderCartList() {
-    const container = document.getElementById("cartItemsContainer");
+function renderOrderCart() {
+    const container = document.getElementById("cartItems");
     if (!container) return;
-
     if (cart.length === 0) {
-        container.innerHTML = `<p style="color:var(--text-muted); font-size:0.9rem; text-align:center;">Your order list is empty. Click "+ Add to Order" on any material.</p>`;
-        document.getElementById("lblCartSubtotal").textContent = "KES 0.00";
-        document.getElementById("lblCartTax").textContent = "KES 0.00";
-        document.getElementById("lblCartGrandTotal").textContent = "KES 0.00";
+        container.innerHTML = `<p class="empty-cart">Your list is empty. Add items to order via WhatsApp.</p>`;
+        document.getElementById("cartSubtotal").textContent = "KES 0.00";
+        document.getElementById("cartVat").textContent = "KES 0.00";
+        document.getElementById("cartTotal").textContent = "KES 0.00";
         return;
     }
 
     container.innerHTML = "";
     let subtotal = 0;
-
     cart.forEach((c, idx) => {
-        const lineTotal = c.price * c.qty;
-        subtotal += lineTotal;
+        let line = c.price * c.qty;
+        subtotal += line;
         container.innerHTML += `
-            <div class="cart-line-item">
-                <div>
-                    <strong>${c.name}</strong><br>
-                    <small>KES ${c.price} × ${c.qty} ${c.unit}</small>
-                </div>
-                <div>
-                    <span>KES ${lineTotal.toLocaleString()}</span>
-                    <button type="button" onclick="removeFromOrderCart(${idx})" style="background:none; border:none; color:red; cursor:pointer; font-weight:bold; margin-left:8px;">✕</button>
-                </div>
+            <div class="cart-item-row">
+                <div><strong>${c.name}</strong><br><small>KES ${c.price} × ${c.qty} ${c.unit}</small></div>
+                <div><span>KES ${line.toLocaleString()}</span><button onclick="removeFromCart(${idx})" class="remove-btn">✕</button></div>
             </div>
         `;
     });
 
-    const tax = subtotal * 0.16;
-    const grand = subtotal + tax;
-
-    document.getElementById("lblCartSubtotal").textContent = `KES ${subtotal.toLocaleString()}`;
-    document.getElementById("lblCartTax").textContent = `KES ${tax.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
-    document.getElementById("lblCartGrandTotal").textContent = `KES ${grand.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+    let vat = subtotal * 0.16;
+    let grand = subtotal + vat;
+    document.getElementById("cartSubtotal").textContent = `KES ${subtotal.toLocaleString()}`;
+    document.getElementById("cartVat").textContent = `KES ${vat.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    document.getElementById("cartTotal").textContent = `KES ${grand.toLocaleString(undefined, {minimumFractionDigits:2})}`;
 }
 
-async function dispatchWhatsAppOrder() {
-    if (cart.length === 0) {
-        alert("Your order inquiry list is empty.");
-        return;
-    }
-
+async function sendWhatsAppOrder() {
+    if (cart.length === 0) return alert("Cart is empty.");
     let summary = "";
     let subtotal = 0;
-    let message = "Hello Rift Metro Hardware, I would like to order the following materials:\n\n";
+    cart.forEach(i => { subtotal += (i.price * i.qty); summary += `${i.name} (${i.qty} ${i.unit}), `; });
+    let total = subtotal * 1.16;
 
-    cart.forEach((item, idx) => {
-        const line = item.price * item.qty;
-        subtotal += line;
-        summary += `${item.name} (${item.qty} ${item.unit}), `;
-        message += `${idx + 1}. ${item.name} - ${item.qty} ${item.unit} @ KES ${item.price} = KES ${line.toLocaleString()}\n`;
-    });
-
-    const tax = subtotal * 0.16;
-    const grand = subtotal + tax;
-
-    message += `\nSubtotal: KES ${subtotal.toLocaleString()}`;
-    message += `\nVAT (16%): KES ${tax.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-    message += `\n*Estimated Total: KES ${grand.toLocaleString(undefined, {minimumFractionDigits:2})}*`;
-    message += `\n\nPayment via Paybill: 880100 (A/C: 117761)\nPlease confirm availability and delivery terms.`;
-
-    // Log Inquiry
-    const newInquiry = { order_summary: summary, total_estimated: grand, created_at: new Date().toISOString() };
-    inquiries.unshift(newInquiry);
+    const inq = { order_summary: summary, total_estimated: total, created_at: new Date().toISOString() };
+    inquiries.unshift(inq);
     localStorage.setItem("rm_inquiries", JSON.stringify(inquiries));
-    if (_supabase) _supabase.from("customer_inquiries").insert([newInquiry]).then(() => {});
+    if (_supabase) _supabase.from("customer_inquiries").insert([inq]).then(() => {});
+
+    let message = `Hello Rift Metro Hardware, I would like to order:\n`;
+    cart.forEach((i, idx) => message += `${idx+1}. ${i.name} - ${i.qty} ${i.unit} @ KES ${i.price}\n`);
+    message += `\nEstimated Total (Incl. 16% VAT): KES ${total.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    message += `\nPaybill: 880100 (A/C: 117761)`;
 
     window.open(`https://wa.me/254716117761?text=${encodeURIComponent(message)}`, "_blank");
 }
 
-// ==========================================
-// 4. OPERATOR POINT OF SALE
-// ==========================================
-function initOperatorDesk() {
-    document.getElementById("posCashierName").value = currentUser ? currentUser.full_name : "Cashier";
-    populatePosItemsSelect();
-    renderOperatorLowStock();
-    renderOperatorInquiries();
-}
-
-function populatePosItemsSelect() {
+// OPERATOR POS
+function populateOperatorDropdown() {
     const sel = document.getElementById("posItemSelect");
     if (!sel) return;
     sel.innerHTML = "";
     inventory.forEach(p => {
         sel.innerHTML += `<option value="${p.sku}">${p.name} (Stock: ${p.quantity} ${p.unit})</option>`;
     });
-    handlePosItemChange();
+    updatePosItemDetails();
 }
 
-function handlePosItemChange() {
+function updatePosItemDetails() {
     const sku = document.getElementById("posItemSelect").value;
     const item = inventory.find(p => p.sku === sku);
     if (!item) return;
-
-    document.getElementById("posItemNotice").textContent = `Available Stock: ${item.quantity} ${item.unit} | Floor Price Limit: KES ${item.min_price}`;
-    document.getElementById("posAgreedPriceInput").value = item.price;
-    calculatePosNumbers();
+    document.getElementById("posInventoryHint").textContent = `Stock: ${item.quantity} ${item.unit} | Floor Price: KES ${item.min_price}`;
+    document.getElementById("posPriceInput").value = item.price;
+    calculatePosTotal();
 }
 
-function calculatePosNumbers() {
+function calculatePosTotal() {
     const sku = document.getElementById("posItemSelect").value;
     const item = inventory.find(p => p.sku === sku);
-    const qty = parseInt(document.getElementById("posQuantityInput").value) || 0;
-    const price = parseFloat(document.getElementById("posAgreedPriceInput").value) || 0;
+    const qty = parseInt(document.getElementById("posQtyInput").value) || 0;
+    const price = parseFloat(document.getElementById("posPriceInput").value) || 0;
 
-    const alertBox = document.getElementById("posPriceFloorAlert");
-    if (item && price < item.min_price) {
-        alertBox.textContent = `⚠️ Below allowable floor price (KES ${item.min_price})!`;
-    } else {
-        alertBox.textContent = "";
-    }
+    const warn = document.getElementById("priceWarning");
+    if (item && price < item.min_price) warn.textContent = `⚠️ Below floor limit (KES ${item.min_price})!`;
+    else warn.textContent = "";
 
-    const subtotal = qty * price;
-    const vat = subtotal * 0.16;
-    const grand = subtotal + vat;
+    let sub = qty * price;
+    let tax = sub * 0.16;
+    let total = sub + tax;
 
-    document.getElementById("lblPosSubtotal").textContent = `KES ${subtotal.toLocaleString()}`;
-    document.getElementById("lblPosVat").textContent = `KES ${vat.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-    document.getElementById("lblPosPayable").textContent = `KES ${grand.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    document.getElementById("posSubtotal").textContent = `KES ${sub.toLocaleString()}`;
+    document.getElementById("posTax").textContent = `KES ${tax.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    document.getElementById("posFinalTotal").textContent = `KES ${total.toLocaleString(undefined, {minimumFractionDigits:2})}`;
 }
 
-async function finalizeCashierSale() {
+async function completeOperatorSale() {
     const sku = document.getElementById("posItemSelect").value;
     const item = inventory.find(p => p.sku === sku);
-    const qty = parseInt(document.getElementById("posQuantityInput").value) || 0;
-    const price = parseFloat(document.getElementById("posAgreedPriceInput").value) || 0;
+    const qty = parseInt(document.getElementById("posQtyInput").value) || 0;
+    const price = parseFloat(document.getElementById("posPriceInput").value) || 0;
     const mode = document.getElementById("posPaymentMode").value;
 
-    if (!item || qty <= 0) {
-        alert("Please select a valid item and quantity.");
-        return;
-    }
+    if (!item || qty <= 0) return alert("Select item and valid quantity.");
+    if (qty > item.quantity) return alert(`Insufficient stock! Only ${item.quantity} left.`);
 
-    if (qty > item.quantity) {
-        alert(`Insufficient Stock! Only ${item.quantity} ${item.unit} available.`);
-        return;
-    }
-
-    const subtotal = qty * price;
-    const vat = subtotal * 0.16;
-    const total = subtotal + vat;
-
-    // Deduct stock
+    let sub = qty * price;
+    let tax = sub * 0.16;
+    let total = sub + tax;
     item.quantity -= qty;
     localStorage.setItem("rm_inventory", JSON.stringify(inventory));
 
-    // Save Sale Log
-    const saleRecord = {
+    const sale = {
         operator_name: currentUser.full_name,
         item_name: item.name,
         sku: item.sku,
@@ -400,190 +325,135 @@ async function finalizeCashierSale() {
         quantity_sold: qty,
         unit_price: price,
         total_paid: total,
-        tax_applied: vat,
+        tax_applied: tax,
         payment_mode: mode,
         created_at: new Date().toISOString()
     };
-    sales.unshift(saleRecord);
+    sales.unshift(sale);
     localStorage.setItem("rm_sales", JSON.stringify(sales));
 
-    // Cloud Sync
     if (_supabase) {
         _supabase.from("hardware_inventory").update({ quantity: item.quantity }).eq("sku", sku).then(() => {});
-        _supabase.from("sales_reports").insert([saleRecord]).then(() => {});
+        _supabase.from("sales_reports").insert([sale]).then(() => {});
     }
 
-    alert("Sale successfully completed! Displaying receipt...");
-    initOperatorDesk();
+    alert("Sale completed!");
+    populateOperatorDropdown();
+    renderOperatorLowStock();
 
-    // Show Printable Thermal Receipt
-    showThermalReceipt({
-        cashier: currentUser.full_name,
-        item: item.name,
-        qty: qty,
-        unit: item.unit,
-        price: price,
-        subtotal: subtotal,
-        tax: vat,
-        total: total,
-        mode: mode,
-        date: new Date().toLocaleString()
-    });
-}
-
-function showThermalReceipt(data) {
-    const box = document.getElementById("receiptDetailsBody");
-    box.innerHTML = `
-        <div style="margin-bottom:6px;">Date: ${data.date}</div>
-        <div style="margin-bottom:6px;">Cashier: ${data.cashier}</div>
-        <div style="margin-bottom:8px;">Payment: ${data.mode} ${data.mode === 'M-PESA' ? '(Paybill: 880100)' : ''}</div>
-        <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:8px 0; margin:8px 0;">
-            <div><strong>${data.item}</strong></div>
-            <div>${data.qty} ${data.unit} × KES ${data.price.toLocaleString()}</div>
-            <div style="display:flex; justify-content:space-between; margin-top:4px;">
-                <span>Subtotal:</span> <strong>KES ${data.subtotal.toLocaleString()}</strong>
-            </div>
-            <div style="display:flex; justify-content:space-between;">
-                <span>VAT (16%):</span> <strong>KES ${data.tax.toLocaleString(undefined, {minimumFractionDigits:2})}</strong>
-            </div>
+    document.getElementById("receiptDetails").innerHTML = `
+        <p>Date: ${new Date().toLocaleString()}</p>
+        <p>Cashier: ${currentUser.full_name}</p>
+        <p>Mode: ${mode} ${mode==='M-PESA'?'(Paybill 880100)':''}</p>
+        <div style="border-top:1px dashed #333; border-bottom:1px dashed #333; padding:6px 0; margin:6px 0;">
+            <strong>${item.name}</strong><br>
+            ${qty} ${item.unit} @ KES ${price.toLocaleString()}<br>
+            Subtotal: KES ${sub.toLocaleString()}<br>
+            VAT (16%): KES ${tax.toLocaleString(undefined, {minimumFractionDigits:2})}
         </div>
-        <div style="display:flex; justify-content:space-between; font-size:1.05rem; font-weight:800;">
-            <span>TOTAL:</span> <span>KES ${data.total.toLocaleString(undefined, {minimumFractionDigits:2})}</span>
-        </div>
+        <strong>TOTAL: KES ${total.toLocaleString(undefined, {minimumFractionDigits:2})}</strong>
     `;
-    document.getElementById("receiptModalBox").style.display = "flex";
+    document.getElementById("receiptModal").style.display = "flex";
 }
+
+function closeReceiptModal() { document.getElementById("receiptModal").style.display = "none"; }
 
 function renderOperatorLowStock() {
     const box = document.getElementById("operatorLowStockList");
     if (!box) return;
     box.innerHTML = "";
     const low = inventory.filter(p => p.quantity <= p.threshold);
-    if (low.length === 0) {
-        box.innerHTML = `<p style="color:#059669; font-size:0.85rem;">All materials above threshold.</p>`;
-        return;
-    }
-    low.forEach(item => {
-        box.innerHTML += `
-            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border-color); font-size:0.85rem;">
-                <span>${item.name}</span>
-                <strong style="color:var(--crimson-red);">${item.quantity} ${item.unit} left</strong>
-            </div>
-        `;
-    });
+    if (low.length === 0) { box.innerHTML = `<p style="color:var(--neon-green); font-size:0.85rem;">All items above threshold.</p>`; return; }
+    low.forEach(i => box.innerHTML += `<div class="mini-row"><span>${i.name}</span><span class="badge low">Left: ${i.quantity}</span></div>`);
 }
 
 function renderOperatorInquiries() {
-    const box = document.getElementById("operatorInquiryLog");
+    const box = document.getElementById("operatorInquiriesList");
     if (!box) return;
     box.innerHTML = "";
-    if (inquiries.length === 0) {
-        box.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem;">No recent inquiries.</p>`;
-        return;
-    }
-    inquiries.slice(0, 5).forEach(inq => {
-        box.innerHTML += `
-            <div style="padding:6px 0; border-bottom:1px solid var(--border-color); font-size:0.85rem;">
-                <div>${inq.order_summary}</div>
-                <strong style="color:var(--brand-blue);">Est: KES ${inq.total_estimated.toLocaleString()}</strong>
-            </div>
-        `;
-    });
+    if (inquiries.length === 0) { box.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem;">No recent inquiries.</p>`; return; }
+    inquiries.slice(0, 5).forEach(inq => box.innerHTML += `<div class="mini-row"><span>${inq.order_summary}</span><strong>KES ${inq.total_estimated.toLocaleString()}</strong></div>`);
 }
 
-// ==========================================
-// 5. ADMIN PORTAL & REPORTS
-// ==========================================
-function initAdminPortal() {
-    showAdminTab("stock");
-    renderAdminStockTable();
-    renderAdminReports();
-    renderExpenseTable();
-    renderStaffTable();
+// ADMIN PORTAL
+function switchAdminTab(tab) {
+    document.querySelectorAll(".admin-tab-content").forEach(c => c.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById(`admin-tab-${tab}`).classList.add("active");
+    event.currentTarget.classList.add("active");
+    if (tab === 'stock') renderAdminStockTable();
+    if (tab === 'reports') renderReportsTables();
+    if (tab === 'expenses') renderExpensesTable();
+    if (tab === 'staff') renderStaffTable();
 }
 
-function showAdminTab(tabName) {
-    document.querySelectorAll(".admin-subtab").forEach(tab => tab.style.display = "none");
-    document.querySelectorAll(".admin-subtab-btn").forEach(btn => btn.classList.remove("active"));
-
-    if (tabName === "stock") document.getElementById("adminTabStock").style.display = "block";
-    if (tabName === "reports") {
-        document.getElementById("adminTabReports").style.display = "block";
-        renderAdminReports();
-    }
-    if (tabName === "expenses") document.getElementById("adminTabExpenses").style.display = "block";
-    if (tabName === "staff") document.getElementById("adminTabStaff").style.display = "block";
-}
-
-async function adminCommitStock() {
-    const name = document.getElementById("admItemName").value.trim();
+async function adminSaveStock() {
+    const name = document.getElementById("admName").value.trim();
     const sku = document.getElementById("admSku").value.trim().toUpperCase();
     const category = document.getElementById("admCategory").value;
-    const price = parseFloat(document.getElementById("admSellingPrice").value);
+    const price = parseFloat(document.getElementById("admPrice").value);
     const cost = parseFloat(document.getElementById("admCostPrice").value) || 0;
-    const floor = parseFloat(document.getElementById("admFloorPrice").value) || price;
-    const qty = parseInt(document.getElementById("admQuantity").value) || 0;
-    const threshold = parseInt(document.getElementById("admThreshold").value) || 10;
+    const min = parseFloat(document.getElementById("admMinPrice").value) || price;
+    const qty = parseInt(document.getElementById("admQty").value) || 0;
+    const thresh = parseInt(document.getElementById("admThreshold").value) || 10;
     const unit = document.getElementById("admUnit").value.trim() || "pcs";
 
-    if (!name || !sku || isNaN(price)) {
-        alert("Please enter Name, SKU, and Selling Price.");
-        return;
-    }
-
-    const newItem = { sku, name, category, price, cost_price: cost, min_price: floor, quantity: qty, threshold, unit };
-    const existingIndex = inventory.findIndex(p => p.sku === sku);
-
-    if (existingIndex >= 0) {
-        inventory[existingIndex] = newItem;
-    } else {
-        inventory.push(newItem);
-    }
+    if (!name || !sku || isNaN(price)) return alert("Fill mandatory fields.");
+    const item = { sku, name, category, price, cost_price: cost, min_price: min, quantity: qty, threshold: thresh, unit };
+    const idx = inventory.findIndex(p => p.sku === sku);
+    if (idx >= 0) inventory[idx] = item; else inventory.push(item);
 
     localStorage.setItem("rm_inventory", JSON.stringify(inventory));
-    if (_supabase) _supabase.from("hardware_inventory").upsert([newItem]).then(() => {});
-
+    if (_supabase) _supabase.from("hardware_inventory").upsert([item]).then(() => {});
     alert("Stock saved successfully!");
     renderAdminStockTable();
 }
 
 function renderAdminStockTable() {
-    const tbody = document.getElementById("tblAdminStockBody");
+    const tbody = document.getElementById("adminStockBody");
     if (!tbody) return;
     tbody.innerHTML = "";
-
-    inventory.forEach(item => {
-        const isLow = item.quantity <= item.threshold;
+    inventory.forEach(i => {
+        const isLow = i.quantity <= i.threshold;
         tbody.innerHTML += `
             <tr>
-                <td><code>${item.sku}</code></td>
-                <td><strong>${item.name}</strong></td>
-                <td>${item.category}</td>
-                <td>KES ${item.price.toLocaleString()}</td>
-                <td>KES ${item.cost_price.toLocaleString()}</td>
-                <td><strong>${item.quantity} ${item.unit}</strong></td>
-                <td>${item.threshold}</td>
-                <td><span class="stock-pill ${isLow ? 'low-stock' : 'in-stock'}">${isLow ? 'Low Stock' : 'Stable'}</span></td>
+                <td><code>${i.sku}</code></td>
+                <td>${i.name}</td>
+                <td>${i.category}</td>
+                <td>KES ${i.price}</td>
+                <td>KES ${i.cost_price}</td>
+                <td><strong>${i.quantity} ${i.unit}</strong></td>
+                <td>${i.threshold}</td>
+                <td><span class="badge ${isLow ? 'low' : 'ok'}">${isLow ? 'Low Stock' : 'OK'}</span></td>
             </tr>
         `;
     });
 }
 
-function renderAdminReports() {
-    const categoryFilter = document.getElementById("filterReportCategory")?.value || "All";
-    const start = document.getElementById("filterReportStart")?.value;
-    const end = document.getElementById("filterReportEnd")?.value;
+function populateReportOperatorDropdown() {
+    const sel = document.getElementById("repFilterOperator");
+    if (!sel) return;
+    sel.innerHTML = '<option value="All">All Operators</option>';
+    [...new Set(sales.map(s => s.operator_name))].forEach(op => sel.innerHTML += `<option value="${op}">${op}</option>`);
+}
+
+function renderReportsTables() {
+    const cat = document.getElementById("repFilterCat")?.value || "All";
+    const op = document.getElementById("repFilterOperator")?.value || "All";
+    const start = document.getElementById("repFilterStart")?.value;
+    const end = document.getElementById("repFilterEnd")?.value;
 
     const filtered = sales.filter(s => {
-        let matchCat = (categoryFilter === "All" || s.category === categoryFilter);
+        let mCat = (cat === 'All' || s.category === cat);
+        let mOp = (op === 'All' || s.operator_name === op);
         let sDate = new Date(s.created_at);
-        let matchDate = true;
-        if (start && sDate < new Date(start)) matchDate = false;
-        if (end && sDate > new Date(end + "T23:59:59")) matchDate = false;
-        return matchCat && matchDate;
+        let mDate = true;
+        if (start && sDate < new Date(start)) mDate = false;
+        if (end && sDate > new Date(end + 'T23:59:59')) mDate = false;
+        return mCat && mOp && mDate;
     });
 
-    const tbody = document.getElementById("tblSalesReportBody");
+    const tbody = document.getElementById("salesReportBody");
     if (tbody) {
         tbody.innerHTML = "";
         filtered.forEach(s => {
@@ -601,111 +471,92 @@ function renderAdminReports() {
         });
     }
 
-    // Profit & Loss calculation
-    const grossRev = filtered.reduce((acc, curr) => acc + curr.total_paid, 0);
-    const totalExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
-    const netProfit = grossRev - totalExpenses;
+    const rev = filtered.reduce((a, c) => a + c.total_paid, 0);
+    const exp = expenses.reduce((a, c) => a + c.amount, 0);
+    const profit = rev - exp;
 
-    document.getElementById("kpiGrossRev").textContent = `KES ${grossRev.toLocaleString()}`;
-    document.getElementById("kpiExpenses").textContent = `KES ${totalExpenses.toLocaleString()}`;
-    document.getElementById("kpiNetProfit").textContent = `KES ${netProfit.toLocaleString()}`;
-}
+    if(document.getElementById("repGrossRev")) document.getElementById("repGrossRev").textContent = `KES ${rev.toLocaleString()}`;
+    if(document.getElementById("repTotalExp")) document.getElementById("repTotalExp").textContent = `KES ${exp.toLocaleString()}`;
+    if(document.getElementById("repNetProfit")) document.getElementById("repNetProfit").textContent = `KES ${profit.toLocaleString()}`;
 
-async function recordStoreExpense() {
-    const category = document.getElementById("expCategory").value;
-    const amount = parseFloat(document.getElementById("expAmount").value);
-    const remarks = document.getElementById("expNotes").value.trim();
-
-    if (isNaN(amount) || amount <= 0) {
-        alert("Please enter a valid expense amount.");
-        return;
+    const lowBody = document.getElementById("lowStockReportBody");
+    if (lowBody) {
+        lowBody.innerHTML = "";
+        const low = inventory.filter(p => p.quantity <= p.threshold);
+        if (low.length === 0) lowBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No low stock items.</td></tr>`;
+        else low.forEach(i => lowBody.innerHTML += `<tr><td><code>${i.sku}</code></td><td>${i.name}</td><td><strong>${i.quantity} ${i.unit}</strong></td><td>${i.threshold}</td><td><span class="badge low">Restock Needed</span></td></tr>`);
     }
-
-    const newExp = {
-        expense_type: category,
-        amount: amount,
-        description: remarks,
-        recorded_by: currentUser.full_name,
-        created_at: new Date().toISOString()
-    };
-
-    expenses.unshift(newExp);
-    localStorage.setItem("rm_expenses", JSON.stringify(expenses));
-    if (_supabase) _supabase.from("shop_expenses").insert([newExp]).then(() => {});
-
-    alert("Expense committed to ledger!");
-    document.getElementById("expAmount").value = "";
-    document.getElementById("expNotes").value = "";
-    renderExpenseTable();
-    renderAdminReports();
 }
 
-function renderExpenseTable() {
-    const tbody = document.getElementById("tblExpenseBody");
+function resetFilters() {
+    if(document.getElementById("repFilterCat")) document.getElementById("repFilterCat").value = "All";
+    if(document.getElementById("repFilterOperator")) document.getElementById("repFilterOperator").value = "All";
+    if(document.getElementById("repFilterStart")) document.getElementById("repFilterStart").value = "";
+    if(document.getElementById("repFilterEnd")) document.getElementById("repFilterEnd").value = "";
+    renderReportsTables();
+}
+
+async function recordExpense() {
+    const type = document.getElementById("expType").value;
+    const amt = parseFloat(document.getElementById("expAmount").value);
+    const desc = document.getElementById("expDesc").value.trim();
+    if (isNaN(amt) || amt <= 0) return alert("Enter valid amount.");
+
+    const e = { expense_type: type, amount: amt, description: desc, recorded_by: currentUser.full_name, created_at: new Date().toISOString() };
+    expenses.unshift(e);
+    localStorage.setItem("rm_expenses", JSON.stringify(expenses));
+    if (_supabase) _supabase.from("shop_expenses").insert([e]).then(() => {});
+
+    alert("Expense recorded!");
+    document.getElementById("expAmount").value = "";
+    document.getElementById("expDesc").value = "";
+    renderExpensesTable();
+    renderReportsTables();
+}
+
+function renderExpensesTable() {
+    const tbody = document.getElementById("expensesTableBody");
     if (!tbody) return;
     tbody.innerHTML = "";
     expenses.forEach(e => {
-        tbody.innerHTML += `
-            <tr>
-                <td>${new Date(e.created_at).toLocaleDateString()}</td>
-                <td><strong>${e.expense_type}</strong></td>
-                <td>KES ${e.amount.toLocaleString()}</td>
-                <td>${e.description || '-'}</td>
-                <td>${e.recorded_by}</td>
-            </tr>
-        `;
+        tbody.innerHTML += `<tr><td>${new Date(e.created_at).toLocaleDateString()}</td><td><strong>${e.expense_type}</strong></td><td>KES ${e.amount.toLocaleString()}</td><td>${e.description||'-'}</td><td>${e.recorded_by}</td></tr>`;
     });
 }
 
-async function adminSaveStaffUser() {
-    const username = document.getElementById("newStaffUser").value.trim().toLowerCase();
-    const full_name = document.getElementById("newStaffName").value.trim();
-    const pin = document.getElementById("newStaffPin").value.trim();
-    const role = document.getElementById("newStaffRole").value;
+async function createStaffAccount() {
+    const username = document.getElementById("staffUsername").value.trim().toLowerCase();
+    const full_name = document.getElementById("staffName").value.trim();
+    const pin = document.getElementById("staffPin").value.trim();
+    const role = document.getElementById("staffRole").value;
 
-    if (!username || !full_name || !pin) {
-        alert("Please fill in Username, Name, and PIN.");
-        return;
-    }
-
-    const newStaff = { username, full_name, pin, role };
-    const existingIndex = staff.findIndex(s => s.username === username);
-
-    if (existingIndex >= 0) {
-        staff[existingIndex] = newStaff;
-    } else {
-        staff.push(newStaff);
-    }
+    if (!username || !full_name || !pin) return alert("Fill out all staff fields.");
+    const s = { username, full_name, pin, role };
+    const idx = staff.findIndex(u => u.username === username);
+    if (idx >= 0) staff[idx] = s; else staff.push(s);
 
     localStorage.setItem("rm_staff", JSON.stringify(staff));
-    if (_supabase) _supabase.from("staff_users").upsert([newStaff]).then(() => {});
-
-    alert("Staff record updated!");
+    if (_supabase) _supabase.from("staff_users").upsert([s]).then(() => {});
+    alert("Staff account saved!");
     renderStaffTable();
 }
 
 function renderStaffTable() {
-    const tbody = document.getElementById("tblStaffBody");
+    const tbody = document.getElementById("staffTableBody");
     if (!tbody) return;
     tbody.innerHTML = "";
     staff.forEach(s => {
-        tbody.innerHTML += `
-            <tr>
-                <td><code>${s.username}</code></td>
-                <td>${s.full_name}</td>
-                <td><strong>${s.role.toUpperCase()}</strong></td>
-            </tr>
-        `;
+        tbody.innerHTML += `<tr><td><code>${s.username}</code></td><td>${s.full_name}</td><td><span class="badge ${s.role==='admin'?'low':'ok'}">${s.role.toUpperCase()}</span></td></tr>`;
     });
 }
 
-function exportSalesReportCsv() {
-    let csv = "Date,Cashier,Item,Category,Quantity,PaymentMode,TotalPaid\n";
-    sales.forEach(s => {
-        csv += `"${s.created_at}","${s.operator_name}","${s.item_name}","${s.category}",${s.quantity_sold},"${s.payment_mode}",${s.total_paid}\n`;
-    });
-    const link = document.createElement("a");
-    link.href = encodeURI("data:text/csv;charset=utf-8," + csv);
-    link.download = "rift_metro_sales_report.csv";
-    link.click();
+function exportReport(type) {
+    if (type === 'print') return window.print();
+    if (type === 'csv') {
+        let csv = "Date,Operator,Item,Category,Quantity,PaymentMode,TotalPaid\n";
+        sales.forEach(s => csv += `"${s.created_at}","${s.operator_name}","${s.item_name}","${s.category}",${s.quantity_sold},"${s.payment_mode}",${s.total_paid}\n`);
+        const link = document.createElement("a");
+        link.href = encodeURI("data:text/csv;charset=utf-8," + csv);
+        link.download = "rift_metro_sales_report.csv";
+        link.click();
+    }
 }
