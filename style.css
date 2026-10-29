@@ -180,27 +180,40 @@ body {
 .app-view { display: none; }
 .app-view.active { display: block; }
 
-/* LOGIN SCREEN */
-.login-box {
+/* MODAL IDENTITY GATEWAY BACKDROP & BOX */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(3, 5, 10, 0.85);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(6px);
+}
+.login-modal-box {
     max-width: 420px;
-    margin: 60px auto;
+    width: 90%;
     background: var(--card-bg);
     border: 1px solid var(--neon-cyan);
     border-radius: 12px;
     padding: 36px;
     text-align: center;
-    box-shadow: 0 0 35px rgba(0, 243, 255, 0.2);
+    box-shadow: 0 0 40px rgba(0, 243, 255, 0.25);
     backdrop-filter: blur(12px);
 }
 .login-icon-lock {
     font-size: 2.5rem;
     margin-bottom: 12px;
 }
-.login-box h2 {
+.login-modal-box h2 {
     color: var(--neon-cyan);
     margin-top: 0;
     font-family: 'Orbitron', sans-serif;
-    font-size: 1.3rem;
+    font-size: 1.25rem;
 }
 
 /* CATALOG & CART */
@@ -462,26 +475,13 @@ tr:hover td { background: rgba(255, 255, 255, 0.02); }
 .whatsapp-btn { background: #25D366 !important; color: #fff !important; margin-top: 14px; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3); }
 
 /* THERMAL RECEIPT MODAL */
-.modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(3, 5, 10, 0.85);
-    z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(5px);
-}
 .receipt-box {
     background: #ffffff;
     color: #111111;
     padding: 30px;
     border-radius: 6px;
     max-width: 420px;
-    width: 100%;
+    width: 90%;
     font-family: 'Courier New', Courier, monospace;
     box-shadow: 0 20px 50px rgba(0,0,0,0.6);
 }
