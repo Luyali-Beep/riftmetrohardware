@@ -3,38 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rift Metro Hardware - Nakuru</title>
+    <title>Rift Metro Hardware | Industrial & Building Supplies Nakuru</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
+    <!-- Google Fonts for professional industrial typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <!-- TOP NOTICE STRIP -->
-    <div class="top-notice-bar">
-        <div>📍 Next to Sakinya Motors, Nakuru | 📞 0716117761 / 0790453707</div>
-        <div>M-PESA PAYBILL: <span class="paybill-badge">880100</span> | A/C: <span class="paybill-badge">117761</span></div>
-    </div>
-
-    <!-- HEADER & NAVBAR -->
+    <!-- PROFESSIONAL BRAND HEADER & STICKY NAVIGATION -->
     <header class="site-header">
-        <div class="brand">
-            <h1>⚡ RIFT METRO HARDWARE</h1>
-            <span id="connection-status" class="badge online">Online</span>
+        <div class="brand-container">
+            <div class="brand-logo-icon">⚡</div>
+            <div>
+                <h1>RIFT METRO HARDWARE</h1>
+                <p class="brand-subtitle" id="headerLocation">Nakuru • Next to Sakinya Motors</p>
+            </div>
         </div>
-        <div class="role-selector">
-            <span id="current-user-display" style="font-size:0.85rem; color:var(--neon-cyan); margin-right:10px;">Mode: Customer</span>
+
+        <div class="header-meta-pill">
+            <div class="meta-item"><span>M-Pesa Paybill:</span> <strong id="headerPaybill">880100</strong></div>
+            <div class="meta-item"><span>A/C:</span> <strong id="headerAccount">117761</strong></div>
+            <div class="meta-item"><span>Hotlines:</span> <strong id="headerPhones">0716117761 / 0790453707</strong></div>
+            <span id="connection-status" class="badge online">Cloud Synced</span>
+        </div>
+
+        <div class="role-selector-bar">
+            <span id="current-user-display" class="user-badge-text">Mode: Customer Catalog</span>
             <button onclick="handleNavClick('viewer')" class="role-btn active" id="btn-viewer">Catalog</button>
             <button onclick="handleNavClick('operator')" class="role-btn" id="btn-operator">Operator Desk</button>
             <button onclick="handleNavClick('admin')" class="role-btn" id="btn-admin">Admin Portal</button>
-            <button onclick="logoutSession()" class="role-btn" id="btn-logout" style="display:none; background:#ff5555; color:#fff;">Logout</button>
+            <button onclick="logoutSession()" class="role-btn logout-action" id="btn-logout" style="display:none;">Logout</button>
         </div>
     </header>
 
-    <!-- SEARCH & CATEGORY BAR -->
+    <!-- ADVANCED SEARCH & CATEGORY FILTER BAR -->
     <section class="search-section" id="searchBarSection">
-        <input type="text" id="searchInput" placeholder="Search cement, steel bars, mabati, plumbing, paint..." oninput="filterCatalog()">
+        <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Search premium cement, steel bars, mabati, plumbing, paint..." oninput="filterCatalog()">
+        </div>
         <select id="categoryFilter" onchange="filterCatalog()">
             <option value="All">All Categories</option>
             <option value="Cement">Cement</option>
@@ -50,39 +60,43 @@
     <!-- MAIN APP CONTAINER -->
     <main class="main-container">
 
-        <!-- LOGIN VIEW -->
+        <!-- LOGIN VIEW OVERLAY -->
         <div id="view-login" class="app-view">
             <div class="login-box">
-                <h2 id="loginTitleHeading">Staff Secure Login</h2>
-                <p id="loginRolePrompt" style="color:var(--text-muted); font-size:0.9rem;">Enter credentials to access terminal</p>
-                <div class="form-group" style="text-align:left;">
-                    <label>Username:</label>
+                <div class="login-icon-lock">🔐</div>
+                <h2>Staff Authorization</h2>
+                <p id="loginRolePrompt" style="color:var(--text-muted); font-size:0.9rem; margin-bottom:20px;">Enter authorized credentials to proceed</p>
+                <div class="form-group text-left">
+                    <label>Username</label>
                     <input type="text" id="loginUser" placeholder="e.g. admin or operator1">
                 </div>
-                <div class="form-group" style="text-align:left;">
-                    <label>Security PIN:</label>
-                    <input type="password" id="loginPin" placeholder="****">
+                <div class="form-group text-left">
+                    <label>Security PIN</label>
+                    <input type="password" id="loginPin" placeholder="••••">
                 </div>
-                <button class="action-btn" onclick="executeLogin()">Authenticate Login</button>
-                <button class="action-btn secondary" onclick="cancelLogin()" style="margin-top:10px;">Cancel / Back</button>
-                <p style="margin-top:15px; font-size:0.8rem;"><a href="#" onclick="triggerPasswordReset()" style="color:var(--neon-cyan);">Forgot Admin Password?</a></p>
+                <button class="action-btn" onclick="executeLogin()">Authenticate Terminal</button>
+                <button class="action-btn secondary" onclick="cancelLogin()" style="margin-top:10px;">Return to Catalog</button>
+                <p style="margin-top:15px; font-size:0.8rem;"><a href="#" onclick="triggerPasswordReset()" style="color:var(--neon-cyan);">Forgot Admin PIN?</a></p>
             </div>
         </div>
 
-        <!-- VIEW 1: CUSTOMER CATALOG & CART -->
+        <!-- VIEW 1: CUSTOMER CATALOG & INQUIRY BASKET -->
         <div id="view-viewer" class="app-view active">
             <div class="catalog-layout">
                 <div class="product-grid" id="productGrid"></div>
                 
                 <div class="cart-sidebar">
-                    <h3>🛒 Order Inquiry Basket</h3>
+                    <div class="cart-sidebar-header">
+                        <h3>🛒 Order Inquiry Basket</h3>
+                        <span class="badge ok">WhatsApp Ready</span>
+                    </div>
                     <div id="cartItems" class="cart-items-box">
-                        <p class="empty-cart">Your list is empty. Add items to order via WhatsApp.</p>
+                        <p class="empty-cart">Your list is empty. Select items from the catalog to build an inquiry order.</p>
                     </div>
                     <div class="cart-summary">
-                        <p>Subtotal: <span id="cartSubtotal">KES 0.00</span></p>
-                        <p>VAT (16%): <span id="cartVat">KES 0.00</span></p>
-                        <p class="total-row">Total: <span id="cartTotal">KES 0.00</span></p>
+                        <div class="summary-line"><span>Subtotal:</span> <span id="cartSubtotal">KES 0.00</span></div>
+                        <div class="summary-line"><span>VAT (16%):</span> <span id="cartVat">KES 0.00</span></div>
+                        <div class="summary-line total-line"><span>Estimated Total:</span> <span id="cartTotal">KES 0.00</span></div>
                     </div>
                     <button class="action-btn whatsapp-btn" onclick="sendWhatsAppOrder()">Send Order via WhatsApp 📱</button>
                 </div>
@@ -96,48 +110,52 @@
                     <h2>🛍️ Point of Sale & Receipting</h2>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Operator:</label>
-                            <input type="text" id="opActiveName" readonly style="background:#040812; color:var(--neon-cyan);">
+                            <label>Active Cashier Operator</label>
+                            <input type="text" id="opActiveName" readonly class="readonly-field">
                         </div>
                         <div class="form-group">
-                            <label>Payment Mode:</label>
+                            <label>Payment Mode</label>
                             <select id="posPaymentMode">
                                 <option value="M-PESA">M-PESA (Paybill 880100)</option>
-                                <option value="Cash">Cash</option>
-                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="Cash">Cash Sale</option>
+                                <option value="Bank Transfer">Direct Bank Transfer</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label>Select Item:</label>
+                        <label>Select Hardware Item</label>
                         <select id="posItemSelect" onchange="updatePosItemDetails()"></select>
                     </div>
-                    <div class="inventory-hint" id="posInventoryHint">Stock: -- | Unit: --</div>
+                    <div class="inventory-hint-box" id="posInventoryHint">Stock: -- | Floor Limit: KES --</div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Quantity:</label>
+                            <label>Quantity Required</label>
                             <input type="number" id="posQtyInput" min="1" value="1" oninput="calculatePosTotal()">
                         </div>
                         <div class="form-group">
-                            <label>Agreed Price (KES):</label>
+                            <label>Agreed Unit Price (KES)</label>
                             <input type="number" id="posPriceInput" oninput="calculatePosTotal()">
                         </div>
                     </div>
                     <div id="priceWarning" class="warning-text"></div>
                     
                     <div class="checkout-summary-box">
-                        <p>Subtotal: <span id="posSubtotal">KES 0.00</span></p>
-                        <p>VAT (16%): <span id="posTax">KES 0.00</span></p>
-                        <p class="total-row">Final Due: <span id="posFinalTotal">KES 0.00</span></p>
+                        <div class="summary-line"><span>Subtotal:</span> <span id="posSubtotal">KES 0.00</span></div>
+                        <div class="summary-line"><span>VAT (16%):</span> <span id="posTax">KES 0.00</span></div>
+                        <div class="summary-line total-line"><span>Final Amount Due:</span> <span id="posFinalTotal">KES 0.00</span></div>
                     </div>
-                    <button class="action-btn success-btn" onclick="completeOperatorSale()">Complete Sale & Print Receipt</button>
+                    <button class="action-btn success-btn" onclick="completeOperatorSale()">Complete Sale & Print Receipt 🖨️</button>
                 </div>
 
                 <div class="quick-stock-panel">
-                    <h3>⚠️ Low Stock Alerts</h3>
-                    <div id="operatorLowStockList" class="mini-list"></div>
-                    <h3 style="margin-top:20px;">📋 Recent Inquiries</h3>
-                    <div id="operatorInquiriesList" class="mini-list"></div>
+                    <div class="panel-sub-section">
+                        <h3>⚠️ Low Stock Alerts</h3>
+                        <div id="operatorLowStockList" class="mini-list"></div>
+                    </div>
+                    <div class="panel-sub-section" style="margin-top:20px;">
+                        <h3>📋 Recent Customer Inquiries</h3>
+                        <div id="operatorInquiriesList" class="mini-list"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -145,46 +163,49 @@
         <!-- VIEW 3: ADMIN PORTAL -->
         <div id="view-admin" class="app-view">
             <div class="admin-tabs">
-                <button class="tab-btn active" onclick="switchAdminTab('stock')">📦 Inventory & Stock</button>
-                <button class="tab-btn" onclick="switchAdminTab('reports')">📊 Sales, Profit & Audit</button>
-                <button class="tab-btn" onclick="switchAdminTab('expenses')">💸 Operating Expenses</button>
-                <button class="tab-btn" onclick="switchAdminTab('staff')">👥 Staff Accounts</button>
+                <button class="tab-btn active" onclick="switchAdminTab('stock', event)">📦 Inventory & Stock Control</button>
+                <button class="tab-btn" onclick="switchAdminTab('reports', event)">📊 Sales, Profit & Financial Audits</button>
+                <button class="tab-btn" onclick="switchAdminTab('expenses', event)">💸 Operating Expenses Ledger</button>
+                <button class="tab-btn" onclick="switchAdminTab('staff', event)">👥 Staff Credentials & Access</button>
             </div>
 
             <!-- TAB 1: STOCK -->
             <div id="admin-tab-stock" class="admin-tab-content active">
                 <div class="admin-card">
-                    <h3>Add / Update Stock</h3>
+                    <h3>Add / Update Inventory Item</h3>
                     <div class="form-grid">
-                        <input type="text" id="admName" placeholder="Item Name (e.g. Simba Cement)">
-                        <input type="text" id="admSku" placeholder="SKU (e.g. CEM-001)">
-                        <select id="admCategory">
-                            <option value="Cement">Cement</option>
-                            <option value="Steel Bars">Steel Bars</option>
-                            <option value="Mabati">Mabati</option>
-                            <option value="Plumbing">Plumbing</option>
-                            <option value="Electrical Supplies">Electrical Supplies</option>
-                            <option value="Paint">Paint</option>
-                            <option value="General Hardware">General Hardware</option>
-                        </select>
-                        <input type="number" id="admPrice" placeholder="Selling Price (KES)">
-                        <input type="number" id="admCostPrice" placeholder="Cost Price (KES)">
-                        <input type="number" id="admMinPrice" placeholder="Floor Price">
-                        <input type="number" id="admQty" placeholder="Quantity">
-                        <input type="number" id="admThreshold" placeholder="Low Threshold">
-                        <input type="text" id="admUnit" placeholder="Unit (bag, pcs, kg)">
+                        <div class="form-group"><label>Item Name</label><input type="text" id="admName" placeholder="e.g. Simba Cement 50kg"></div>
+                        <div class="form-group"><label>SKU Code</label><input type="text" id="admSku" placeholder="e.g. CEM-001"></div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select id="admCategory">
+                                <option value="Cement">Cement</option>
+                                <option value="Steel Bars">Steel Bars</option>
+                                <option value="Mabati">Mabati</option>
+                                <option value="Plumbing">Plumbing</option>
+                                <option value="Electrical Supplies">Electrical Supplies</option>
+                                <option value="Paint">Paint</option>
+                                <option value="General Hardware">General Hardware</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Selling Price (KES)</label><input type="number" id="admPrice" placeholder="850"></div>
+                        <div class="form-group"><label>Cost Price (KES)</label><input type="number" id="admCostPrice" placeholder="750"></div>
+                        <div class="form-group"><label>Floor Limit Price (KES)</label><input type="number" id="admMinPrice" placeholder="820"></div>
+                        <div class="form-group"><label>Quantity Available</label><input type="number" id="admQty" placeholder="150"></div>
+                        <div class="form-group"><label>Low Stock Threshold</label><input type="number" id="admThreshold" placeholder="30"></div>
+                        <div class="form-group"><label>Unit of Measure</label><input type="text" id="admUnit" placeholder="bag / pcs / meters"></div>
                     </div>
-                    <button class="action-btn" onclick="adminSaveStock()">Save Stock Item</button>
+                    <button class="action-btn" onclick="adminSaveStock()">Commit Stock to Database</button>
                 </div>
 
                 <div class="admin-card">
-                    <h3>Active Inventory</h3>
+                    <h3>Active Store Inventory Register</h3>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
                                     <th>SKU</th>
-                                    <th>Name</th>
+                                    <th>Item Name</th>
                                     <th>Category</th>
                                     <th>Price</th>
                                     <th>Cost</th>
@@ -202,30 +223,30 @@
             <!-- TAB 2: REPORTS -->
             <div id="admin-tab-reports" class="admin-tab-content">
                 <div class="reports-toolbar">
-                    <button class="action-btn" onclick="exportReport('csv')">Download CSV Sheet</button>
-                    <button class="action-btn secondary" onclick="exportReport('print')">Print / PDF Report</button>
+                    <button class="action-btn" onclick="exportReport('csv')">Download CSV Audit Sheet</button>
+                    <button class="action-btn secondary" onclick="exportReport('print')">Print Official Report</button>
                 </div>
 
-                <div class="admin-card" style="border-color:var(--neon-cyan);">
-                    <h3 style="color:var(--neon-cyan);">💰 Financial Summary & Profit Report</h3>
-                    <div class="form-row" style="text-align:center;">
-                        <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px;">
-                            <small>Gross Revenue</small>
-                            <h3 id="repGrossRev" style="color:var(--neon-green); margin:4px 0;">KES 0.00</h3>
+                <div class="admin-card financial-banner">
+                    <h3>💰 Financial Summary & Real-Time Net Profit</h3>
+                    <div class="metrics-grid">
+                        <div class="metric-box">
+                            <span>Gross Revenue</span>
+                            <h3 id="repGrossRev" style="color:var(--neon-green);">KES 0.00</h3>
                         </div>
-                        <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px;">
-                            <small>Total Expenditures</small>
-                            <h3 id="repTotalExp" style="color:#ff6b81; margin:4px 0;">KES 0.00</h3>
+                        <div class="metric-box">
+                            <span>Total Expenditures</span>
+                            <h3 id="repTotalExp" style="color:var(--crimson-red);">KES 0.00</h3>
                         </div>
-                        <div style="background:rgba(0,0,0,0.3); padding:12px; border-radius:8px;">
-                            <small>Estimated Net Profit</small>
-                            <h3 id="repNetProfit" style="color:var(--neon-cyan); margin:4px 0;">KES 0.00</h3>
+                        <div class="metric-box highlight-metric">
+                            <span>Estimated Net Profit</span>
+                            <h3 id="repNetProfit" style="color:var(--neon-cyan);">KES 0.00</h3>
                         </div>
                     </div>
                 </div>
 
                 <div class="filter-bar">
-                    <label>Filter:</label>
+                    <span style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">Filter Options:</span>
                     <select id="repFilterCat" onchange="renderReportsTables()">
                         <option value="All">All Categories</option>
                         <option value="Cement">Cement</option>
@@ -241,18 +262,18 @@
                     </select>
                     <input type="date" id="repFilterStart" onchange="renderReportsTables()">
                     <input type="date" id="repFilterEnd" onchange="renderReportsTables()">
-                    <button onclick="resetFilters()" style="background:#222; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">Reset</button>
+                    <button onclick="resetFilters()" class="filter-reset-btn">Reset Filters</button>
                 </div>
 
                 <div class="admin-card">
-                    <h3>Sales Audit Records</h3>
+                    <h3>Completed Sales Records</h3>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
                                     <th>Date</th>
                                     <th>Operator</th>
-                                    <th>Item</th>
+                                    <th>Item Sold</th>
                                     <th>Category</th>
                                     <th>Qty</th>
                                     <th>Mode</th>
@@ -265,16 +286,16 @@
                 </div>
 
                 <div class="admin-card">
-                    <h3>Low Stock Alert List</h3>
+                    <h3>Inventory Restock Alerts</h3>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
                                     <th>SKU</th>
-                                    <th>Name</th>
-                                    <th>Qty Left</th>
+                                    <th>Item Name</th>
+                                    <th>Quantity Left</th>
                                     <th>Threshold</th>
-                                    <th>Status</th>
+                                    <th>Action Required</th>
                                 </tr>
                             </thead>
                             <tbody id="lowStockReportBody"></tbody>
@@ -286,33 +307,36 @@
             <!-- TAB 3: EXPENSES -->
             <div id="admin-tab-expenses" class="admin-tab-content">
                 <div class="admin-card">
-                    <h3>Record Store Expense</h3>
+                    <h3>Record Operational Expense</h3>
                     <div class="form-grid">
-                        <select id="expType">
-                            <option value="Salary">Staff Salary</option>
-                            <option value="Rent">Shop Rent</option>
-                            <option value="Casual Labor">Casual Labor</option>
-                            <option value="Transport">Transport / Delivery</option>
-                            <option value="Utilities">Utilities (Power/Water)</option>
-                            <option value="Other">Other Expenses</option>
-                        </select>
-                        <input type="number" id="expAmount" placeholder="Amount (KES)">
-                        <input type="text" id="expDesc" placeholder="Description">
+                        <div class="form-group">
+                            <label>Expense Category</label>
+                            <select id="expType">
+                                <option value="Salary">Staff Salary</option>
+                                <option value="Rent">Shop Rent</option>
+                                <option value="Casual Labor">Casual Labor</option>
+                                <option value="Transport">Transport / Logistics</option>
+                                <option value="Utilities">Utilities (Power/Water)</option>
+                                <option value="Other">General Store Expenses</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Amount (KES)</label><input type="number" id="expAmount" placeholder="e.g. 15000"></div>
+                        <div class="form-group" style="grid-column: span 2;"><label>Description / Vendor Details</label><input type="text" id="expDesc" placeholder="e.g. Monthly electricity token purchase"></div>
                     </div>
-                    <button class="action-btn" onclick="recordExpense()">Record Expense</button>
+                    <button class="action-btn" onclick="recordExpense()">Log Expenditure Record</button>
                 </div>
 
                 <div class="admin-card">
-                    <h3>Expenditure Ledger</h3>
+                    <h3>Expenditure Audit Ledger</h3>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
                                     <th>Date</th>
-                                    <th>Type</th>
+                                    <th>Category</th>
                                     <th>Amount</th>
                                     <th>Description</th>
-                                    <th>By</th>
+                                    <th>Recorded By</th>
                                 </tr>
                             </thead>
                             <tbody id="expensesTableBody"></tbody>
@@ -324,28 +348,31 @@
             <!-- TAB 4: STAFF -->
             <div id="admin-tab-staff" class="admin-tab-content">
                 <div class="admin-card">
-                    <h3>Manage Staff Accounts</h3>
+                    <h3>Manage Staff Terminal Accounts</h3>
                     <div class="form-grid">
-                        <input type="text" id="staffUsername" placeholder="Username">
-                        <input type="text" id="staffName" placeholder="Full Name">
-                        <input type="password" id="staffPin" placeholder="4-digit PIN">
-                        <select id="staffRole">
-                            <option value="operator">Operator</option>
-                            <option value="admin">Admin</option>
-                        </select>
+                        <div class="form-group"><label>Username</label><input type="text" id="staffUsername" placeholder="e.g. operator2"></div>
+                        <div class="form-group"><label>Full Name</label><input type="text" id="staffName" placeholder="e.g. Jane Doe"></div>
+                        <div class="form-group"><label>4-Digit Security PIN</label><input type="password" id="staffPin" placeholder="1234"></div>
+                        <div class="form-group">
+                            <label>System Role</label>
+                            <select id="staffRole">
+                                <option value="operator">Operator Desk Cashier</option>
+                                <option value="admin">Administrator Manager</option>
+                            </select>
+                        </div>
                     </div>
-                    <button class="action-btn" onclick="createStaffAccount()">Save Staff Account</button>
+                    <button class="action-btn" onclick="createStaffAccount()">Save Staff Credentials</button>
                 </div>
 
                 <div class="admin-card">
-                    <h3>Staff Register</h3>
+                    <h3>Authorized Personnel Register</h3>
                     <div class="table-responsive">
                         <table>
                             <thead>
                                 <tr>
                                     <th>Username</th>
-                                    <th>Name</th>
-                                    <th>Role</th>
+                                    <th>Full Name</th>
+                                    <th>Assigned Role</th>
                                 </tr>
                             </thead>
                             <tbody id="staffTableBody"></tbody>
@@ -357,23 +384,23 @@
 
     </main>
 
-    <!-- THERMAL RECEIPT MODAL -->
-    <div id="receiptModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:99999; align-items:center; justify-content:center;">
+    <!-- PROFESSIONAL THERMAL RECEIPT MODAL -->
+    <div id="receiptModal" class="modal-backdrop" style="display:none;">
         <div class="receipt-box">
             <div class="receipt-header">
-                <h3 style="margin:0; color:#070a12;">RIFT METRO HARDWARE</h3>
-                <p style="margin:2px 0; font-size:0.8rem;">Next to Sakinya Motors, Nakuru</p>
-                <p style="margin:2px 0; font-size:0.8rem;">Tel: 0716117761 / 0790453707</p>
-                <p style="margin:2px 0; font-size:0.8rem;">Paybill: 880100 | A/C: 117761</p>
+                <h3>⚡ RIFT METRO HARDWARE</h3>
+                <p id="receiptLocation">Nakuru • Next to Sakinya Motors</p>
+                <p id="receiptContacts">Tel: 0716117761 / 0790453707</p>
+                <p id="receiptPaybill">M-PESA Paybill: 880100 | A/C: 117761</p>
             </div>
-            <div id="receiptDetails" style="font-size:0.85rem; line-height:1.5;"></div>
-            <div style="text-align:center; border-top:2px dashed #333; margin-top:15px; padding-top:10px; font-size:0.8rem;">
-                <p>Goods once sold are not returnable.</p>
-                <p><strong>Thank you for your business!</strong></p>
+            <div id="receiptDetails" class="receipt-body-content"></div>
+            <div class="receipt-footer">
+                <p>Goods once sold are strictly non-returnable.</p>
+                <p><strong>Thank you for doing business with us!</strong></p>
             </div>
-            <div style="text-align:center; margin-top:15px;">
-                <button onclick="window.print()" class="action-btn" style="width:auto; display:inline-block; margin-right:8px;">Print</button>
-                <button onclick="closeReceiptModal()" class="action-btn secondary" style="width:auto; display:inline-block;">Close</button>
+            <div class="receipt-actions">
+                <button onclick="window.print()" class="action-btn" style="width:auto; display:inline-block; padding:8px 16px;">Print Receipt</button>
+                <button onclick="closeReceiptModal()" class="action-btn secondary" style="width:auto; display:inline-block; padding:8px 16px;">Close Window</button>
             </div>
         </div>
     </div>
