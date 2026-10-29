@@ -1,15 +1,15 @@
 {
   "name": "Rift Metro Hardware - Nakuru",
   "short_name": "RiftMetro",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0A192F",
-  "theme_color": "#C51E3A",
+  "background_color": "#0F3A78",
+  "theme_color": "#DC2626",
   "icons": [
     {
-      "src": "logo.jpeg",
+      "src": "favicon.png",
       "sizes": "192x192 512x512",
-      "type": "image/jpeg"
+      "type": "image/png"
     }
   ]
 }
