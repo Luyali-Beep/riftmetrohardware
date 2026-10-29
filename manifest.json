@@ -1,15 +1,15 @@
 {
-  "name": "Luyali Hardware RMS",
-  "short_name": "LuyaliHardware",
+  "name": "Rift Metro Hardware RMS",
+  "short_name": "RiftMetro",
   "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#070a12",
-  "theme_color": "#00f3ff",
+  "background_color": "#0A192F",
+  "theme_color": "#C51E3A",
   "icons": [
     {
-      "src": "https://img.icons8.com/fluency/96/hardware.png",
+      "src": "data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%230A192F%22/><text x=%2250%22 y=%2265%22 font-size=%2250%22 font-weight=%22bold%22 fill=%22%23FFD700%22 text-anchor=%22middle%22 font-family=%22Arial%22>RM</text></svg>",
       "sizes": "96x96",
-      "type": "image/png"
+      "type": "image/svg+xml"
     }
   ]
 }
