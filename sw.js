@@ -1,9 +1,10 @@
-const CACHE_NAME = 'rift-metro-v2';
+const CACHE_NAME = 'rift-metro-v3';
 const ASSETS_TO_CACHE = [
   './index.html',
   './style.css',
   './app.js',
-  './manifest.json'
+  './manifest.json',
+  './logo.jpeg'
 ];
 
 self.addEventListener('install', (event) => {
