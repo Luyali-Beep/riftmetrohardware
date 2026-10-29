@@ -2,6 +2,7 @@
     --bg-navy: #0A192F;
     --card-bg: rgba(16, 28, 54, 0.9);
     --crimson-red: #C51E3A;
+    --brand-blue: #1E3A8A;
     --gold-accent: #FFD700;
     --text-main: #F8FAFC;
     --text-muted: #94A3B8;
@@ -31,7 +32,8 @@ body {
 }
 
 .brand { display: flex; align-items: center; gap: 12px; }
-.brand h1 { margin: 0; font-size: 1.3rem; color: var(--gold-accent); letter-spacing: 1px; }
+.brand-logo { width: 45px; height: 45px; object-fit: contain; border-radius: 6px; background: #fff; padding: 2px; }
+.brand h1 { margin: 0; font-size: 1.2rem; color: var(--gold-accent); letter-spacing: 0.5px; }
 
 .badge { font-size: 0.75rem; padding: 3px 8px; border-radius: 10px; font-weight: bold; }
 .badge.online { background: rgba(0,255,136,0.15); color: #00ff88; border: 1px solid #00ff88; }
@@ -39,7 +41,7 @@ body {
 .badge.ok { background: rgba(0,255,136,0.1); color: #00ff88; }
 .badge.low { background: rgba(197,30,58,0.2); color: #ff6b81; border: 1px solid var(--crimson-red); }
 
-.role-selector { display: flex; gap: 8px; align-items: center; }
+.role-selector { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .role-btn {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -186,7 +188,6 @@ th { color: var(--gold-accent); background: rgba(4,8,16,0.4); font-family: monos
 .action-btn.success-btn { background: linear-gradient(135deg, #00ff88 0%, #00aa55 100%); color: #070a12; }
 .whatsapp-btn { background: #25D366 !important; color: #fff !important; margin-top: 12px; }
 
-/* PRINT RECEIPT STYLING */
 @media print {
     body * { visibility: hidden; }
     #receiptModal, #receiptModal * { visibility: visible; }
@@ -194,3 +195,8 @@ th { color: var(--gold-accent); background: rgba(4,8,16,0.4); font-family: monos
 }
 .receipt-box { background: #fff; color: #111; padding: 25px; border-radius: 8px; max-width: 450px; margin: auto; font-family: monospace; }
 .receipt-header { text-align: center; border-bottom: 2px dashed #333; padding-bottom: 10px; margin-bottom: 12px; }
+
+@media (max-width: 900px) {
+    .catalog-layout, .operator-layout { grid-template-columns: 1fr; }
+    .cart-sidebar { position: static; }
+}
