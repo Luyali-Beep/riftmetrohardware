@@ -7,13 +7,12 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <!-- Google Fonts for professional industrial typography -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <!-- PROFESSIONAL BRAND HEADER & STICKY NAVIGATION -->
+    <!-- BRAND HEADER & STICKY NAVIGATION -->
     <header class="site-header">
         <div class="brand-container">
             <div class="brand-logo-icon">⚡</div>
@@ -43,7 +42,7 @@
     <section class="search-section" id="searchBarSection">
         <div class="search-input-wrapper">
             <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" placeholder="Search premium cement, steel bars, mabati, plumbing, paint..." oninput="filterCatalog()">
+            <input type="text" id="searchInput" placeholder="Search cement, steel bars, mabati, plumbing, paint..." oninput="filterCatalog()">
         </div>
         <select id="categoryFilter" onchange="filterCatalog()">
             <option value="All">All Categories</option>
@@ -59,26 +58,6 @@
 
     <!-- MAIN APP CONTAINER -->
     <main class="main-container">
-
-        <!-- LOGIN VIEW OVERLAY -->
-        <div id="view-login" class="app-view">
-            <div class="login-box">
-                <div class="login-icon-lock">🔐</div>
-                <h2>Staff Authorization</h2>
-                <p id="loginRolePrompt" style="color:var(--text-muted); font-size:0.9rem; margin-bottom:20px;">Enter authorized credentials to proceed</p>
-                <div class="form-group text-left">
-                    <label>Username</label>
-                    <input type="text" id="loginUser" placeholder="e.g. admin or operator1">
-                </div>
-                <div class="form-group text-left">
-                    <label>Security PIN</label>
-                    <input type="password" id="loginPin" placeholder="••••">
-                </div>
-                <button class="action-btn" onclick="executeLogin()">Authenticate Terminal</button>
-                <button class="action-btn secondary" onclick="cancelLogin()" style="margin-top:10px;">Return to Catalog</button>
-                <p style="margin-top:15px; font-size:0.8rem;"><a href="#" onclick="triggerPasswordReset()" style="color:var(--neon-cyan);">Forgot Admin PIN?</a></p>
-            </div>
-        </div>
 
         <!-- VIEW 1: CUSTOMER CATALOG & INQUIRY BASKET -->
         <div id="view-viewer" class="app-view active">
@@ -384,7 +363,29 @@
 
     </main>
 
-    <!-- PROFESSIONAL THERMAL RECEIPT MODAL -->
+    <!-- IDENTITY GATEWAY / STAFF LOGIN MODAL DIALOG -->
+    <div id="loginModal" class="modal-backdrop" style="display:none;">
+        <div class="login-modal-box">
+            <div class="login-icon-lock">🔐</div>
+            <h2 id="loginTitleHeading">Staff Authorization Required</h2>
+            <p id="loginRolePrompt" style="color:var(--text-muted); font-size:0.9rem; margin-bottom:20px;">Enter credentials to access terminal</p>
+            
+            <div class="form-group text-left">
+                <label>Username</label>
+                <input type="text" id="loginUser" placeholder="e.g. admin or operator1">
+            </div>
+            <div class="form-group text-left">
+                <label>Security PIN</label>
+                <input type="password" id="loginPin" placeholder="••••">
+            </div>
+            
+            <button class="action-btn" onclick="executeLogin()">Authenticate & Open</button>
+            <button class="action-btn secondary" onclick="closeLoginModal()" style="margin-top:10px;">Cancel / Return to Catalog</button>
+            <p style="margin-top:15px; font-size:0.8rem;"><a href="#" onclick="triggerPasswordReset()" style="color:var(--neon-cyan);">Forgot Admin PIN?</a></p>
+        </div>
+    </div>
+
+    <!-- THERMAL RECEIPT MODAL -->
     <div id="receiptModal" class="modal-backdrop" style="display:none;">
         <div class="receipt-box">
             <div class="receipt-header">
