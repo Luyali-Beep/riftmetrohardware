@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luyali Hardware Inventory & Catalog Management</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <!-- Supabase UMD Client CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <!-- TOP NAVIGATION & ROLE TOGGLE -->
+    <header class="site-header">
+        <div class="brand">
+            <h1>⚡ LUYALI HARDWARE RMS</h1>
+            <span id="connection-status" class="badge online">Online</span>
+        </div>
+        <div class="role-selector">
+            <button onclick="switchRole('viewer')" class="role-btn active" id="btn-viewer">Customer View</button>
+            <button onclick="switchRole('operator')" class="role-btn" id="btn-operator">Operator Desk</button>
+            <button onclick="switchRole('admin')" class="role-btn" id="btn-admin">Admin Portal</button>
+        </div>
+    </header>
+
+    <!-- SEARCH & CATEGORY FILTER BAR -->
+    <section class="search-section">
+        <input type="text" id="searchInput" placeholder="Search by item name, SKU, or category..." oninput="filterCatalog()">
+        <select id="categoryFilter" onchange="filterCatalog()">
+            <option value="All">All Categories</option>
+            <option value="Cement & Aggregates">Cement & Aggregates</option>
+            <option value="Steel & Iron">Steel & Iron</option>
+            <option value="Plumbing">Plumbing</option>
+            <option value="Electrical">Electrical</option>
+            <option value="Fasteners & Tools">Fasteners & Tools</option>
+        </select>
+    </section>
+
+    <!-- MAIN VIEWPORT CONTAINER -->
+    <main class="main-container">
+
+        <!-- VIEW 1: CUSTOMER CATALOG & MULTI-PURCHASE CART -->
+        <div id="view-viewer" class="app-view active">
+            <div class="catalog-layout">
+                <div class="product-grid" id="productGrid">
+                    <!-- Dynamic Product Cards injected here -->
+                </div>
+                
+                <!-- Inquiry / Order Cart Sidebar -->
+                <div class="cart-sidebar">
+                    <h3>🛒 Order Inquiry List</h3>
+                    <div id="cartItems" class="cart-items-box">
+                        <p class="empty-cart">Your order list is empty. Click "Add to Order" on any item.</p>
+                    </div>
+                    <div class="cart-summary">
+                        <p>Estimated Subtotal: <span id="cartSubtotal">KES 0.00</span></p>
+                        <p>VAT (16%): <span id="cartVat">KES 0.00</span></p>
+                        <p class="total-row">Estimated Total: <span id="cartTotal">KES 0.00</span></p>
+                    </div>
+                    <button class="action-btn whatsapp-btn" onclick="sendWhatsAppOrder()">Send Order via WhatsApp 📱</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: OPERATOR DESK (POS & Checkout) -->
+        <div id="view-operator" class="app-view">
+            <div class="operator-layout">
+                <div class="pos-panel">
+                    <h2>🛍️ Sales Processing Desk</h2>
+                    <div class="form-group">
+                        <label>Operator Login Name:</label>
+                        <input type="text" id="operatorNameInput" placeholder="e.g. John Operator" value="Cashier 1">
+                    </div>
+                    <div class="form-group">
+                        <label>Select Hardware Item:</label>
+                        <select id="posItemSelect" onchange="updatePosItemDetails()"></select>
+                    </div>
+                    <div class="inventory-hint" id="posInventoryHint">Remaining Stock: -- | Unit: --</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Quantity Selling:</label>
+                            <input type="number" id="posQtyInput" min="1" value="1" oninput="calculatePosTotal()">
+                        </div>
+                        <div class="form-group">
+                            <label>Agreed Price (KES):</label>
+                            <input type="number" id="posPriceInput" oninput="calculatePosTotal()">
+                        </div>
+                    </div>
+                    <div id="priceWarning" class="warning-text"></div>
+                    
+                    <div class="checkout-summary-box">
+                        <p>Line Subtotal: <span id="posSubtotal">KES 0.00</span></p>
+                        <p>VAT Applied (16%): <span id="posTax">KES 0.00</span></p>
+                        <p class="total-row">Final Amount Due: <span id="posFinalTotal">KES 0.00</span></p>
+                    </div>
+                    <button class="action-btn success-btn" onclick="completeOperatorSale()">Complete Purchase & Update Stock</button>
+                </div>
+
+                <!-- Operator Quick Stock Monitor -->
+                <div class="quick-stock-panel">
+                    <h3>⚠️ Live Low-Stock Monitor</h3>
+                    <div id="operatorLowStockList" class="mini-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: ADMIN MANAGEMENT & REPORTS -->
+        <div id="view-admin" class="app-view">
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="switchAdminTab('stock')">📦 Stock & Threshold Management</button>
+                <button class="tab-btn" onclick="switchAdminTab('reports')">📊 Sales & Operation Reports</button>
+                <button class="tab-btn" onclick="switchAdminTab('settings')">⚙️ Shop Global Settings</button>
+            </div>
+
+            <!-- TAB 1: STOCK MANAGEMENT -->
+            <div id="admin-tab-stock" class="admin-tab-content active">
+                <div class="admin-card">
+                    <h3>Add New Stock / Upload Product</h3>
+                    <div class="form-grid">
+                        <input type="text" id="admName" placeholder="Item Name (e.g. Simba Cement 50kg)">
+                        <input type="text" id="admSku" placeholder="SKU / Code (e.g. CEM-001)">
+                        <select id="admCategory">
+                            <option value="Cement & Aggregates">Cement & Aggregates</option>
+                            <option value="Steel & Iron">Steel & Iron</option>
+                            <option value="Plumbing">Plumbing</option>
+                            <option value="Electrical">Electrical</option>
+                            <option value="Fasteners & Tools">Fasteners & Tools</option>
+                        </select>
+                        <input type="number" id="admPrice" placeholder="Standard Catalog Price (KES)">
+                        <input type="number" id="admMinPrice" placeholder="Minimum Negotiable Price (KES)">
+                        <input type="number" id="admQty" placeholder="Initial Quantity Bought">
+                        <input type="number" id="admThreshold" placeholder="Low Stock Threshold Value">
+                        <input type="text" id="admUnit" placeholder="Unit (e.g. bag, pcs, kg, roll)">
+                    </div>
+                    <button class="action-btn" onclick="adminAddNewStock()">Save & Upload Stock to Cloud</button>
+                </div>
+
+                <div class="admin-card">
+                    <h3>Entire Hardware Stock List</h3>
+                    <div class="table-responsive">
+                        <table id="adminStockTable">
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Item Name</th>
+                                    <th>Category</th>
+                                    <th>Price (KES)</th>
+                                    <th>Floor Price</th>
+                                    <th>Qty Left</th>
+                                    <th>Threshold</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminStockBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: REPORTS & DOWNLOADS -->
+            <div id="admin-tab-reports" class="admin-tab-content">
+                <div class="reports-toolbar">
+                    <button class="action-btn" onclick="exportReport('csv')">Download as Sheet (.CSV)</button>
+                    <button class="action-btn secondary" onclick="exportReport('print')">Download as PDF / Print</button>
+                </div>
+
+                <div class="admin-card">
+                    <h3>Sales Audit Report (Per Operator)</h3>
+                    <div class="table-responsive">
+                        <table id="salesReportTable">
+                            <thead>
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Operator Name</th>
+                                    <th>Item Sold</th>
+                                    <th>Qty</th>
+                                    <th>Total Paid (Incl. 16% VAT)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="salesReportBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="admin-card">
+                    <h3>Low-Stock Alert Report (Active Thresholds)</h3>
+                    <div class="table-responsive">
+                        <table id="lowStockReportTable">
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Item Name</th>
+                                    <th>Current Qty</th>
+                                    <th>Alert Threshold</th>
+                                    <th>Action Required</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lowStockReportBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: GLOBAL SETTINGS -->
+            <div id="admin-tab-settings" class="admin-card">
+                <h3>Shop Contact & Communication Settings</h3>
+                <p>Configure the WhatsApp and email details used for customer-to-seller order inquiries.</p>
+                <div class="form-group">
+                    <label>Shop WhatsApp Phone Number (Format: 2547XXXXXXXX):</label>
+                    <input type="text" id="settingPhone" placeholder="254712345678">
+                </div>
+                <div class="form-group">
+                    <label>Shop Official Email Address:</label>
+                    <input type="email" id="settingEmail" placeholder="sales@luyalihardware.co.ke">
+                </div>
+                <button class="action-btn" onclick="saveSettings()">Save Global Settings</button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Main JavaScript App Logic -->
+    <script src="app.js"></script>
+    <script>
+        // Register Service Worker for PWA Offline Functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(() => console.log('PWA Service Worker Registered Successfully'))
+                    .catch(err => console.log('PWA Registration Failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
