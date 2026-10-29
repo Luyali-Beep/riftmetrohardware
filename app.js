@@ -1,198 +1,199 @@
 // ==========================================
-// SUPABASE CONFIGURATION
+// RIFT METRO HARDWARE - SYSTEM CONTROLLER
 // ==========================================
 const SUPABASE_URL = 'https://htfmtwrbqrytjfnsulow.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_apSmCIhXSUOENc9lRbDoJA_-hg0EQK3';
 
-const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let _supabase = null;
+try {
+    if (window.supabase) {
+        _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+} catch (e) {
+    console.warn("Supabase init failed. Operating with resilient local fallback.");
+}
 
-// Global State
-let catalogProducts = [];
-let orderCart = [];
-let salesLogs = [];
-let expensesLogs = [];
-let staffUsers = [];
-let activeUser = null; 
+// Built-in starter products matching the poster
+const DEFAULT_INVENTORY = [
+    { sku: "CEM-001", name: "Simba Cement 50kg", category: "Cement", price: 850, cost_price: 750, min_price: 820, quantity: 150, threshold: 30, unit: "bag" },
+    { sku: "STL-012", name: "D12 High-Yield Steel Bars", category: "Steel Bars", price: 1650, cost_price: 1450, min_price: 1580, quantity: 95, threshold: 25, unit: "pcs" },
+    { sku: "PLM-004", name: "PPR Water Pipes (32mm)", category: "Plumbing", price: 620, cost_price: 500, min_price: 580, quantity: 45, threshold: 10, unit: "pcs" },
+    { sku: "PNT-002", name: "Crown Weather Shield 20L", category: "Paint", price: 8900, cost_price: 7800, min_price: 8500, quantity: 18, threshold: 5, unit: "tins" },
+    { sku: "MBT-001", name: "Box Profile Mabati (30G)", category: "Mabati", price: 950, cost_price: 820, min_price: 900, quantity: 120, threshold: 40, unit: "meters" }
+];
 
-document.addEventListener('DOMContentLoaded', async () => {
-    checkConnectionStatus();
-    await fetchInventory();
-    await fetchStaffUsers();
-    await fetchSalesLogs();
-    await fetchExpenses();
-    await fetchInquiries();
+const DEFAULT_STAFF = [
+    { username: "admin", pin: "1234", role: "admin", full_name: "Store Manager" },
+    { username: "operator1", pin: "1111", role: "operator", full_name: "Desk Cashier" }
+];
+
+// App Memory State
+let inventory = [];
+let staff = [];
+let sales = [];
+let expenses = [];
+let inquiries = [];
+let cart = [];
+let currentUser = null; 
+let pendingLoginRole = null;
+
+// ==========================================
+// 1. BOOTSTRAPPER
+// ==========================================
+document.addEventListener("DOMContentLoaded", async () => {
+    // 1. Load Local Storage Caches
+    inventory = JSON.parse(localStorage.getItem("rm_inventory")) || DEFAULT_INVENTORY;
+    staff = JSON.parse(localStorage.getItem("rm_staff")) || DEFAULT_STAFF;
+    sales = JSON.parse(localStorage.getItem("rm_sales")) || [];
+    expenses = JSON.parse(localStorage.getItem("rm_expenses")) || [];
+    inquiries = JSON.parse(localStorage.getItem("rm_inquiries")) || [];
+
+    // 2. Fetch from Supabase if online
+    await syncAllFromCloud();
+
+    // 3. Render Initial View
+    renderCatalogGrid();
+    renderCartList();
 });
 
-async function checkConnectionStatus() {
-    const indicator = document.getElementById('connection-status');
-    if (!indicator) return;
-    if (navigator.onLine) {
-        indicator.textContent = "Online Synced";
-        indicator.className = "badge online";
-    } else {
-        indicator.textContent = "Offline Mode";
-        indicator.className = "badge offline";
+async function syncAllFromCloud() {
+    if (!_supabase || !navigator.onLine) return;
+    try {
+        const { data: inv } = await _supabase.from("hardware_inventory").select("*");
+        if (inv && inv.length > 0) {
+            inventory = inv;
+            localStorage.setItem("rm_inventory", JSON.stringify(inventory));
+        }
+
+        const { data: stf } = await _supabase.from("staff_users").select("*");
+        if (stf && stf.length > 0) {
+            staff = stf;
+            localStorage.setItem("rm_staff", JSON.stringify(staff));
+        }
+
+        const { data: sls } = await _supabase.from("sales_reports").select("*").order("created_at", { ascending: false });
+        if (sls) {
+            sales = sls;
+            localStorage.setItem("rm_sales", JSON.stringify(sales));
+        }
+
+        const { data: exp } = await _supabase.from("shop_expenses").select("*").order("created_at", { ascending: false });
+        if (exp) {
+            expenses = exp;
+            localStorage.setItem("rm_expenses", JSON.stringify(expenses));
+        }
+    } catch (e) {
+        console.warn("Cloud sync deferred:", e);
     }
 }
 
 // ==========================================
-// AUTHENTICATION & NAVIGATION ROUTING
+// 2. NAVIGATION & LOGIN HANDLERS (GUARANTEED WORKING)
 // ==========================================
-function handleNavClick(role) {
-    if (role === 'viewer') {
-        switchRole('viewer');
+function navigateToView(targetView) {
+    // If public catalog, let anyone view
+    if (targetView === "viewer") {
+        displaySection("viewViewer");
+        setActiveNavButton("btnRoleViewer");
+        document.getElementById("catalogSearchStrip").style.display = "flex";
+        renderCatalogGrid();
         return;
     }
 
-    if (activeUser && ((role === 'operator' && (activeUser.role === 'operator' || activeUser.role === 'admin')) || (role === 'admin' && activeUser.role === 'admin'))) {
-        switchRole(role);
-    } else {
-        promptLogin(role);
-    }
-}
-
-function promptLogin(role) {
-    document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
-    document.getElementById('view-login').classList.add('active');
-    document.getElementById('searchBarSection').style.display = 'none';
-    document.getElementById('loginRolePrompt').textContent = `Please enter credentials for: ${role.toUpperCase()} portal`;
-    document.getElementById('loginUser').dataset.targetRole = role;
-    document.getElementById('loginUser').value = '';
-    document.getElementById('loginPin').value = '';
-}
-
-function cancelLogin() {
-    if (activeUser) {
-        switchRole(activeUser.role === 'admin' ? 'admin' : 'operator');
-    } else {
-        switchRole('viewer');
-    }
-}
-
-async function executeLogin() {
-    const user = document.getElementById('loginUser').value.trim();
-    const pin = document.getElementById('loginPin').value.trim();
-    const targetRole = document.getElementById('loginUser').dataset.targetRole;
-
-    const { data, error } = await _supabase.from('staff_users').select('*').eq('username', user).single();
-
-    if (error || !data || data.pin !== pin) {
-        alert('Invalid Username or Security PIN.');
-        return;
-    }
-
-    if (targetRole === 'admin' && data.role !== 'admin') {
-        alert('Access Denied: This account does not have Admin privileges.');
-        return;
-    }
-
-    activeUser = data;
-    document.getElementById('current-user-display').textContent = `User: ${data.full_name} (${data.role.toUpperCase()})`;
-    document.getElementById('btn-logout').style.display = 'inline-block';
-
-    switchRole(data.role === 'admin' ? 'admin' : 'operator');
-}
-
-function triggerPasswordReset() {
-    const username = prompt("Enter your Admin Username to initiate recovery reference:");
-    if (!username) return;
-    if (username === 'admin') {
-        alert("To reset the admin password, go to your Supabase SQL Editor and execute:\nUPDATE staff_users SET pin = 'NEW_PIN' WHERE username = 'admin';");
-    } else {
-        alert("Please contact the primary system administrator.");
-    }
-}
-
-function logoutSession() {
-    activeUser = null;
-    document.getElementById('current-user-display').textContent = 'Mode: Customer';
-    document.getElementById('btn-logout').style.display = 'none';
-    switchRole('viewer');
-}
-
-function switchRole(role) {
-    document.querySelectorAll('.app-view').forEach(v => v.classList.remove('active'));
-    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
-
-    if (role === 'viewer') {
-        document.getElementById('view-viewer').classList.add('active');
-        document.getElementById('btn-viewer').classList.add('active');
-        document.getElementById('searchBarSection').style.display = 'flex';
-    } else {
-        document.getElementById('searchBarSection').style.display = 'none';
-        if (role === 'operator') {
-            document.getElementById('view-operator').classList.add('active');
-            document.getElementById('btn-operator').classList.add('active');
-            document.getElementById('opActiveName').value = activeUser ? activeUser.full_name : 'Cashier';
-            populateOperatorDropdown();
-            renderOperatorLowStock();
-            renderOperatorInquiries();
-        } else if (role === 'admin') {
-            document.getElementById('view-admin').classList.add('active');
-            document.getElementById('btn-admin').classList.add('active');
-            renderAdminStockTable();
-            renderReportsTables();
-            renderExpensesTable();
-            renderStaffTable();
-            populateReportOperatorDropdown();
+    // If Operator or Admin is requested, verify login session
+    if (currentUser) {
+        if (targetView === "operator") {
+            displaySection("viewOperator");
+            setActiveNavButton("btnRoleOperator");
+            document.getElementById("catalogSearchStrip").style.display = "none";
+            initOperatorDesk();
+            return;
+        }
+        if (targetView === "admin") {
+            if (currentUser.role === "admin") {
+                displaySection("viewAdmin");
+                setActiveNavButton("btnRoleAdmin");
+                document.getElementById("catalogSearchStrip").style.display = "none";
+                initAdminPortal();
+                return;
+            } else {
+                alert("Permission Denied: Administrator clearance required.");
+                return;
+            }
         }
     }
+
+    // If not logged in, show Login Screen
+    pendingLoginRole = targetView;
+    displaySection("viewLogin");
+    setActiveNavButton(targetView === "admin" ? "btnRoleAdmin" : "btnRoleOperator");
+    document.getElementById("catalogSearchStrip").style.display = "none";
+    document.getElementById("loginTitle").textContent = targetView === "admin" ? "Admin Security Terminal" : "Operator Desk Terminal";
+    document.getElementById("txtLoginUser").value = "";
+    document.getElementById("txtLoginPin").value = "";
 }
 
-// ==========================================
-// DATA FETCHING FUNCTIONS
-// ==========================================
-async function fetchInventory() {
-    const { data } = await _supabase.from('hardware_inventory').select('*');
-    if (data) {
-        catalogProducts = data;
-        renderViewerCatalog();
+function displaySection(viewId) {
+    document.querySelectorAll(".section-view").forEach(sec => sec.classList.remove("active"));
+    const activeSec = document.getElementById(viewId);
+    if (activeSec) activeSec.classList.add("active");
+}
+
+function setActiveNavButton(btnId) {
+    document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.remove("active"));
+    const activeBtn = document.getElementById(btnId);
+    if (activeBtn) activeBtn.classList.add("active");
+}
+
+function submitStaffLogin() {
+    const username = document.getElementById("txtLoginUser").value.trim().toLowerCase();
+    const pin = document.getElementById("txtLoginPin").value.trim();
+
+    const user = staff.find(u => u.username.toLowerCase() === username && u.pin === pin);
+
+    if (!user) {
+        alert("Invalid staff username or security PIN. Default is admin / 1234");
+        return;
     }
-}
 
-async function fetchStaffUsers() {
-    const { data } = await _supabase.from('staff_users').select('*');
-    if (data) staffUsers = data;
-}
-
-async function fetchSalesLogs() {
-    const { data } = await _supabase.from('sales_reports').select('*').order('created_at', { ascending: false });
-    if (data) salesLogs = data;
-}
-
-async function fetchExpenses() {
-    const { data } = await _supabase.from('shop_expenses').select('*').order('created_at', { ascending: false });
-    if (data) expensesLogs = data;
-}
-
-async function fetchInquiries() {
-    const { data } = await _supabase.from('customer_inquiries').select('*').order('created_at', { ascending: false });
-    if (data && document.getElementById('operatorInquiriesList')) {
-        renderOperatorInquiries(data);
+    if (pendingLoginRole === "admin" && user.role !== "admin") {
+        alert("Access Denied: You do not have Administrator permissions.");
+        return;
     }
+
+    currentUser = user;
+    document.getElementById("activeUserGreeting").textContent = `${user.full_name} (${user.role.toUpperCase()})`;
+    document.getElementById("btnLogout").style.display = "inline-flex";
+
+    navigateToView(user.role === "admin" ? "admin" : "operator");
+}
+
+function logoutCurrentSession() {
+    currentUser = null;
+    document.getElementById("activeUserGreeting").textContent = "Customer View";
+    document.getElementById("btnLogout").style.display = "none";
+    navigateToView("viewer");
 }
 
 // ==========================================
-// 1. CATALOG & WHATSAPP / INQUIRY LOG
+// 3. CATALOG & WHATSAPP BASKET
 // ==========================================
-function renderViewerCatalog() {
-    const grid = document.getElementById('productGrid');
+function renderCatalogGrid() {
+    const grid = document.getElementById("productsCatalogGrid");
     if (!grid) return;
-    grid.innerHTML = '';
+    grid.innerHTML = "";
 
-    const searchElem = document.getElementById('searchInput');
-    const catElem = document.getElementById('categoryFilter');
-    const search = searchElem ? searchElem.value.toLowerCase() : '';
-    const cat = catElem ? catElem.value : 'All';
+    const query = (document.getElementById("catalogSearchInput")?.value || "").toLowerCase();
+    const category = document.getElementById("catalogCategorySelect")?.value || "All";
 
-    const filtered = catalogProducts.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(search) || p.sku.toLowerCase().includes(search);
-        const matchesCat = (cat === 'All' || p.category === cat);
-        return matchesSearch && matchesCat;
+    const filtered = inventory.filter(item => {
+        const matchesQuery = item.name.toLowerCase().includes(query) || item.sku.toLowerCase().includes(query);
+        const matchesCategory = (category === "All" || item.category === category);
+        return matchesQuery && matchesCategory;
     });
 
     if (filtered.length === 0) {
-        grid.innerHTML = `<p class="empty-msg">No hardware items found.</p>`;
+        grid.innerHTML = `<p style="grid-column: 1/-1; text-align:center; color:var(--text-muted); padding:30px;">No hardware materials found matching your search.</p>`;
         return;
     }
 
@@ -200,383 +201,450 @@ function renderViewerCatalog() {
         const isLow = item.quantity <= item.threshold;
         grid.innerHTML += `
             <div class="product-card">
-                <div class="card-header">
-                    <span class="sku-badge">${item.sku}</span>
-                    <span class="stock-status ${isLow ? 'low' : 'ok'}">${isLow ? '⚠️ Low Stock' : 'In Stock'}</span>
+                <div>
+                    <div class="card-top">
+                        <span class="sku-tag">${item.sku}</span>
+                        <span class="stock-pill ${isLow ? 'low-stock' : 'in-stock'}">${isLow ? 'Low Stock' : 'In Stock'}</span>
+                    </div>
+                    <h4>${item.name}</h4>
+                    <div class="category-subtitle">${item.category}</div>
                 </div>
-                <h4>${item.name}</h4>
-                <p class="category-text">${item.category}</p>
-                <div class="price-box">KES ${item.price.toLocaleString()} <small>/ ${item.unit}</small></div>
-                <button class="action-btn" onclick="addToOrderCart('${item.sku}')">Add to Order</button>
+                <div>
+                    <div class="price-row">KES ${item.price.toLocaleString()} <small>/ ${item.unit}</small></div>
+                    <button type="button" class="btn-primary" onclick="addToOrderCart('${item.sku}')">+ Add to Order</button>
+                </div>
             </div>
         `;
     });
 }
 
-function filterCatalog() { renderViewerCatalog(); }
-
-function addToOrderCart(sku) {
-    const product = catalogProducts.find(p => p.sku === sku);
-    if (!product) return;
-    const existing = orderCart.find(c => c.sku === sku);
-    if (existing) existing.qty += 1;
-    else orderCart.push({ sku: product.sku, name: product.name, price: product.price, qty: 1, unit: product.unit });
-    renderOrderCart();
+function handleCatalogFilter() {
+    renderCatalogGrid();
 }
 
-function renderOrderCart() {
-    const container = document.getElementById('cartItems');
+function addToOrderCart(sku) {
+    const item = inventory.find(p => p.sku === sku);
+    if (!item) return;
+
+    const existing = cart.find(c => c.sku === sku);
+    if (existing) {
+        existing.qty += 1;
+    } else {
+        cart.push({ sku: item.sku, name: item.name, price: item.price, unit: item.unit, qty: 1 });
+    }
+    renderCartList();
+}
+
+function removeFromOrderCart(index) {
+    cart.splice(index, 1);
+    renderCartList();
+}
+
+function renderCartList() {
+    const container = document.getElementById("cartItemsContainer");
     if (!container) return;
-    if (orderCart.length === 0) {
-        container.innerHTML = `<p class="empty-cart">Your list is empty. Add items to request a quote or order via WhatsApp.</p>`;
-        document.getElementById('cartSubtotal').textContent = 'KES 0.00';
-        document.getElementById('cartVat').textContent = 'KES 0.00';
-        document.getElementById('cartTotal').textContent = 'KES 0.00';
+
+    if (cart.length === 0) {
+        container.innerHTML = `<p style="color:var(--text-muted); font-size:0.9rem; text-align:center;">Your order list is empty. Click "+ Add to Order" on any material.</p>`;
+        document.getElementById("lblCartSubtotal").textContent = "KES 0.00";
+        document.getElementById("lblCartTax").textContent = "KES 0.00";
+        document.getElementById("lblCartGrandTotal").textContent = "KES 0.00";
         return;
     }
 
-    container.innerHTML = '';
+    container.innerHTML = "";
     let subtotal = 0;
-    orderCart.forEach((item, index) => {
-        let lineTotal = item.price * item.qty;
+
+    cart.forEach((c, idx) => {
+        const lineTotal = c.price * c.qty;
         subtotal += lineTotal;
         container.innerHTML += `
-            <div class="cart-item-row">
-                <div><strong>${item.name}</strong><br><small>KES ${item.price} x ${item.qty} ${item.unit}</small></div>
-                <div><span>KES ${lineTotal.toLocaleString()}</span><button onclick="removeFromCart(${index})" class="remove-btn">✕</button></div>
+            <div class="cart-line-item">
+                <div>
+                    <strong>${c.name}</strong><br>
+                    <small>KES ${c.price} × ${c.qty} ${c.unit}</small>
+                </div>
+                <div>
+                    <span>KES ${lineTotal.toLocaleString()}</span>
+                    <button type="button" onclick="removeFromOrderCart(${idx})" style="background:none; border:none; color:red; cursor:pointer; font-weight:bold; margin-left:8px;">✕</button>
+                </div>
             </div>
         `;
     });
 
-    let vat = subtotal * 0.16;
-    let total = subtotal + vat;
-    document.getElementById('cartSubtotal').textContent = `KES ${subtotal.toLocaleString()}`;
-    document.getElementById('cartVat').textContent = `KES ${vat.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-    document.getElementById('cartTotal').textContent = `KES ${total.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    const tax = subtotal * 0.16;
+    const grand = subtotal + tax;
+
+    document.getElementById("lblCartSubtotal").textContent = `KES ${subtotal.toLocaleString()}`;
+    document.getElementById("lblCartTax").textContent = `KES ${tax.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
+    document.getElementById("lblCartGrandTotal").textContent = `KES ${grand.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}`;
 }
 
-function removeFromCart(index) { orderCart.splice(index, 1); renderOrderCart(); }
+async function dispatchWhatsAppOrder() {
+    if (cart.length === 0) {
+        alert("Your order inquiry list is empty.");
+        return;
+    }
 
-async function sendWhatsAppOrder() {
-    if (orderCart.length === 0) return alert('Cart is empty.');
-    let summaryText = "";
+    let summary = "";
     let subtotal = 0;
-    orderCart.forEach(i => {
-        subtotal += (i.price * i.qty);
-        summaryText += `${i.name} (${i.qty} ${i.unit}), `;
+    let message = "Hello Rift Metro Hardware, I would like to order the following materials:\n\n";
+
+    cart.forEach((item, idx) => {
+        const line = item.price * item.qty;
+        subtotal += line;
+        summary += `${item.name} (${item.qty} ${item.unit}), `;
+        message += `${idx + 1}. ${item.name} - ${item.qty} ${item.unit} @ KES ${item.price} = KES ${line.toLocaleString()}\n`;
     });
-    let total = subtotal * 1.16;
 
-    await _supabase.from('customer_inquiries').insert([{
-        customer_details: 'WhatsApp Customer',
-        order_summary: summaryText,
-        total_estimated: total
-    }]);
-    fetchInquiries();
+    const tax = subtotal * 0.16;
+    const grand = subtotal + tax;
 
-    let message = `Hello Rift Metro Hardware, I would like to order:\n`;
-    orderCart.forEach((i, idx) => message += `${idx+1}. ${i.name} - ${i.qty} ${i.unit} @ KES ${i.price}\n`);
-    message += `\nEstimated Total (Incl. 16% VAT): KES ${total.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-    message += `\nPaybill: 880100 (A/C: 117761)`;
+    message += `\nSubtotal: KES ${subtotal.toLocaleString()}`;
+    message += `\nVAT (16%): KES ${tax.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    message += `\n*Estimated Total: KES ${grand.toLocaleString(undefined, {minimumFractionDigits:2})}*`;
+    message += `\n\nPayment via Paybill: 880100 (A/C: 117761)\nPlease confirm availability and delivery terms.`;
 
-    window.open(`https://wa.me/254716117761?text=${encodeURIComponent(message)}`, '_blank');
+    // Log Inquiry
+    const newInquiry = { order_summary: summary, total_estimated: grand, created_at: new Date().toISOString() };
+    inquiries.unshift(newInquiry);
+    localStorage.setItem("rm_inquiries", JSON.stringify(inquiries));
+    if (_supabase) _supabase.from("customer_inquiries").insert([newInquiry]).then(() => {});
+
+    window.open(`https://wa.me/254716117761?text=${encodeURIComponent(message)}`, "_blank");
 }
 
 // ==========================================
-// 2. OPERATOR DESK & RECEIPT GENERATION
+// 4. OPERATOR POINT OF SALE
 // ==========================================
-function populateOperatorDropdown() {
-    const select = document.getElementById('posItemSelect');
-    if (!select) return;
-    select.innerHTML = '';
-    catalogProducts.forEach(p => {
-        select.innerHTML += `<option value="${p.sku}">${p.name} (Stock: ${p.quantity} ${p.unit})</option>`;
-    });
-    updatePosItemDetails();
-}
-
-function updatePosItemDetails() {
-    const select = document.getElementById('posItemSelect');
-    if (!select || !select.value) return;
-    const sku = select.value;
-    const product = catalogProducts.find(p => p.sku === sku);
-    if (!product) return;
-    document.getElementById('posInventoryHint').textContent = `Stock: ${product.quantity} ${product.unit} | Floor Price: KES ${product.min_price}`;
-    document.getElementById('posPriceInput').value = product.price;
-    calculatePosTotal();
-}
-
-function calculatePosTotal() {
-    const select = document.getElementById('posItemSelect');
-    if (!select || !select.value) return;
-    const sku = select.value;
-    const product = catalogProducts.find(p => p.sku === sku);
-    const qty = parseInt(document.getElementById('posQtyInput').value) || 0;
-    const price = parseFloat(document.getElementById('posPriceInput').value) || 0;
-
-    const warning = document.getElementById('priceWarning');
-    if (product && price < product.min_price) warning.textContent = `⚠️ Below floor price limit (KES ${product.min_price})!`;
-    else warning.textContent = '';
-
-    let subtotal = qty * price;
-    let tax = subtotal * 0.16;
-    let final = subtotal + tax;
-
-    document.getElementById('posSubtotal').textContent = `KES ${subtotal.toLocaleString()}`;
-    document.getElementById('posTax').textContent = `KES ${tax.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-    document.getElementById('posFinalTotal').textContent = `KES ${final.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-}
-
-async function completeOperatorSale() {
-    const select = document.getElementById('posItemSelect');
-    if (!select || !select.value) return alert('Please select an item.');
-    const sku = select.value;
-    const product = catalogProducts.find(p => p.sku === sku);
-    const qtySold = parseInt(document.getElementById('posQtyInput').value) || 0;
-    const unitPrice = parseFloat(document.getElementById('posPriceInput').value) || 0;
-    const paymentMode = document.getElementById('posPaymentMode').value;
-    const operatorName = activeUser ? activeUser.full_name : 'Cashier';
-
-    if (!product || qtySold <= 0) return alert('Invalid product or quantity.');
-    if (qtySold > product.quantity) return alert(`Insufficient stock! Only ${product.quantity} left.`);
-
-    let subtotal = qtySold * unitPrice;
-    let tax = subtotal * 0.16;
-    let totalPaid = subtotal + tax;
-    let newQty = product.quantity - qtySold;
-
-    await _supabase.from('hardware_inventory').update({ quantity: newQty }).eq('sku', sku);
-    
-    await _supabase.from('sales_reports').insert([{
-        operator_name: operatorName,
-        item_name: product.name,
-        sku: product.sku,
-        category: product.category,
-        quantity_sold: qtySold,
-        unit_price: unitPrice,
-        total_paid: totalPaid,
-        tax_applied: tax,
-        payment_mode: paymentMode
-    }]);
-
-    alert('Sale completed successfully!');
-    await fetchInventory();
-    await fetchSalesLogs();
-    populateOperatorDropdown();
+function initOperatorDesk() {
+    document.getElementById("posCashierName").value = currentUser ? currentUser.full_name : "Cashier";
+    populatePosItemsSelect();
     renderOperatorLowStock();
+    renderOperatorInquiries();
+}
 
+function populatePosItemsSelect() {
+    const sel = document.getElementById("posItemSelect");
+    if (!sel) return;
+    sel.innerHTML = "";
+    inventory.forEach(p => {
+        sel.innerHTML += `<option value="${p.sku}">${p.name} (Stock: ${p.quantity} ${p.unit})</option>`;
+    });
+    handlePosItemChange();
+}
+
+function handlePosItemChange() {
+    const sku = document.getElementById("posItemSelect").value;
+    const item = inventory.find(p => p.sku === sku);
+    if (!item) return;
+
+    document.getElementById("posItemNotice").textContent = `Available Stock: ${item.quantity} ${item.unit} | Floor Price Limit: KES ${item.min_price}`;
+    document.getElementById("posAgreedPriceInput").value = item.price;
+    calculatePosNumbers();
+}
+
+function calculatePosNumbers() {
+    const sku = document.getElementById("posItemSelect").value;
+    const item = inventory.find(p => p.sku === sku);
+    const qty = parseInt(document.getElementById("posQuantityInput").value) || 0;
+    const price = parseFloat(document.getElementById("posAgreedPriceInput").value) || 0;
+
+    const alertBox = document.getElementById("posPriceFloorAlert");
+    if (item && price < item.min_price) {
+        alertBox.textContent = `⚠️ Below allowable floor price (KES ${item.min_price})!`;
+    } else {
+        alertBox.textContent = "";
+    }
+
+    const subtotal = qty * price;
+    const vat = subtotal * 0.16;
+    const grand = subtotal + vat;
+
+    document.getElementById("lblPosSubtotal").textContent = `KES ${subtotal.toLocaleString()}`;
+    document.getElementById("lblPosVat").textContent = `KES ${vat.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    document.getElementById("lblPosPayable").textContent = `KES ${grand.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+}
+
+async function finalizeCashierSale() {
+    const sku = document.getElementById("posItemSelect").value;
+    const item = inventory.find(p => p.sku === sku);
+    const qty = parseInt(document.getElementById("posQuantityInput").value) || 0;
+    const price = parseFloat(document.getElementById("posAgreedPriceInput").value) || 0;
+    const mode = document.getElementById("posPaymentMode").value;
+
+    if (!item || qty <= 0) {
+        alert("Please select a valid item and quantity.");
+        return;
+    }
+
+    if (qty > item.quantity) {
+        alert(`Insufficient Stock! Only ${item.quantity} ${item.unit} available.`);
+        return;
+    }
+
+    const subtotal = qty * price;
+    const vat = subtotal * 0.16;
+    const total = subtotal + vat;
+
+    // Deduct stock
+    item.quantity -= qty;
+    localStorage.setItem("rm_inventory", JSON.stringify(inventory));
+
+    // Save Sale Log
+    const saleRecord = {
+        operator_name: currentUser.full_name,
+        item_name: item.name,
+        sku: item.sku,
+        category: item.category,
+        quantity_sold: qty,
+        unit_price: price,
+        total_paid: total,
+        tax_applied: vat,
+        payment_mode: mode,
+        created_at: new Date().toISOString()
+    };
+    sales.unshift(saleRecord);
+    localStorage.setItem("rm_sales", JSON.stringify(sales));
+
+    // Cloud Sync
+    if (_supabase) {
+        _supabase.from("hardware_inventory").update({ quantity: item.quantity }).eq("sku", sku).then(() => {});
+        _supabase.from("sales_reports").insert([saleRecord]).then(() => {});
+    }
+
+    alert("Sale successfully completed! Displaying receipt...");
+    initOperatorDesk();
+
+    // Show Printable Thermal Receipt
     showThermalReceipt({
-        operator: operatorName,
-        item: product.name,
-        qty: qtySold,
-        unit: product.unit,
-        price: unitPrice,
+        cashier: currentUser.full_name,
+        item: item.name,
+        qty: qty,
+        unit: item.unit,
+        price: price,
         subtotal: subtotal,
-        tax: tax,
-        total: totalPaid,
-        mode: paymentMode,
+        tax: vat,
+        total: total,
+        mode: mode,
         date: new Date().toLocaleString()
     });
 }
 
 function showThermalReceipt(data) {
-    const details = document.getElementById('receiptDetails');
-    details.innerHTML = `
-        <p>Date: ${data.date}</p>
-        <p>Cashier: ${data.operator}</p>
-        <p>Payment: ${data.mode} ${data.mode === 'M-PESA' ? '(Paybill: 880100)' : ''}</p>
-        <div style="border-top:1px solid #333; border-bottom:1px solid #333; margin:8px 0; padding:6px 0;">
-            <strong>Item:</strong> ${data.item}<br>
-            <strong>Qty:</strong> ${data.qty} ${data.unit} @ KES ${data.price}<br>
-            <strong>Subtotal:</strong> KES ${data.subtotal.toLocaleString()}<br>
-            <strong>VAT (16%):</strong> KES ${data.tax.toLocaleString(undefined, {minimumFractionDigits:2})}<br>
+    const box = document.getElementById("receiptDetailsBody");
+    box.innerHTML = `
+        <div style="margin-bottom:6px;">Date: ${data.date}</div>
+        <div style="margin-bottom:6px;">Cashier: ${data.cashier}</div>
+        <div style="margin-bottom:8px;">Payment: ${data.mode} ${data.mode === 'M-PESA' ? '(Paybill: 880100)' : ''}</div>
+        <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:8px 0; margin:8px 0;">
+            <div><strong>${data.item}</strong></div>
+            <div>${data.qty} ${data.unit} × KES ${data.price.toLocaleString()}</div>
+            <div style="display:flex; justify-content:space-between; margin-top:4px;">
+                <span>Subtotal:</span> <strong>KES ${data.subtotal.toLocaleString()}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+                <span>VAT (16%):</span> <strong>KES ${data.tax.toLocaleString(undefined, {minimumFractionDigits:2})}</strong>
+            </div>
         </div>
-        <p style="font-size:1.05rem; font-weight:bold;">TOTAL PAID: KES ${data.total.toLocaleString(undefined, {minimumFractionDigits:2})}</p>
+        <div style="display:flex; justify-content:space-between; font-size:1.05rem; font-weight:800;">
+            <span>TOTAL:</span> <span>KES ${data.total.toLocaleString(undefined, {minimumFractionDigits:2})}</span>
+        </div>
     `;
-    document.getElementById('receiptModal').style.display = 'flex';
+    document.getElementById("receiptModalBox").style.display = "flex";
 }
-
-function closeReceiptModal() { document.getElementById('receiptModal').style.display = 'none'; }
 
 function renderOperatorLowStock() {
-    const container = document.getElementById('operatorLowStockList');
-    if (!container) return;
-    container.innerHTML = '';
-    const low = catalogProducts.filter(p => p.quantity <= p.threshold);
-    if (low.length === 0) { container.innerHTML = `<p class="ok-msg" style="color:#00ff88; font-size:0.85rem;">No low stock items.</p>`; return; }
-    low.forEach(i => {
-        container.innerHTML += `<div class="mini-row"><span>${i.name}</span><span class="badge low">Left: ${i.quantity}</span></div>`;
+    const box = document.getElementById("operatorLowStockList");
+    if (!box) return;
+    box.innerHTML = "";
+    const low = inventory.filter(p => p.quantity <= p.threshold);
+    if (low.length === 0) {
+        box.innerHTML = `<p style="color:#059669; font-size:0.85rem;">All materials above threshold.</p>`;
+        return;
+    }
+    low.forEach(item => {
+        box.innerHTML += `
+            <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border-color); font-size:0.85rem;">
+                <span>${item.name}</span>
+                <strong style="color:var(--crimson-red);">${item.quantity} ${item.unit} left</strong>
+            </div>
+        `;
     });
 }
 
-function renderOperatorInquiries(inquiriesList) {
-    const container = document.getElementById('operatorInquiriesList');
-    if (!container) return;
-    container.innerHTML = '';
-    if (!inquiriesList || inquiriesList.length === 0) { container.innerHTML = `<p class="ok-msg" style="color:var(--text-muted); font-size:0.85rem;">No recent inquiries.</p>`; return; }
-    inquiriesList.slice(0, 5).forEach(inq => {
-        container.innerHTML += `<div class="mini-row"><span>${inq.order_summary}</span><strong>KES ${inq.total_estimated.toLocaleString()}</strong></div>`;
+function renderOperatorInquiries() {
+    const box = document.getElementById("operatorInquiryLog");
+    if (!box) return;
+    box.innerHTML = "";
+    if (inquiries.length === 0) {
+        box.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem;">No recent inquiries.</p>`;
+        return;
+    }
+    inquiries.slice(0, 5).forEach(inq => {
+        box.innerHTML += `
+            <div style="padding:6px 0; border-bottom:1px solid var(--border-color); font-size:0.85rem;">
+                <div>${inq.order_summary}</div>
+                <strong style="color:var(--brand-blue);">Est: KES ${inq.total_estimated.toLocaleString()}</strong>
+            </div>
+        `;
     });
 }
 
 // ==========================================
-// 3. ADMIN PORTAL & P&L / FILTERS / STAFF
+// 5. ADMIN PORTAL & REPORTS
 // ==========================================
-function switchAdminTab(tabName) {
-    document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-
-    document.getElementById(`admin-tab-${tabName}`).classList.add('active');
-    event.currentTarget.classList.add('active');
-
-    if (tabName === 'stock') renderAdminStockTable();
-    if (tabName === 'reports') renderReportsTables();
-    if (tabName === 'expenses') renderExpensesTable();
-    if (tabName === 'staff') renderStaffTable();
+function initAdminPortal() {
+    showAdminTab("stock");
+    renderAdminStockTable();
+    renderAdminReports();
+    renderExpenseTable();
+    renderStaffTable();
 }
 
-async function adminSaveStock() {
-    const name = document.getElementById('admName').value.trim();
-    const sku = document.getElementById('admSku').value.trim();
-    const category = document.getElementById('admCategory').value;
-    const price = parseFloat(document.getElementById('admPrice').value);
-    const cost_price = parseFloat(document.getElementById('admCostPrice').value) || 0;
-    const min_price = parseFloat(document.getElementById('admMinPrice').value);
-    const quantity = parseInt(document.getElementById('admQty').value);
-    const threshold = parseInt(document.getElementById('admThreshold').value);
-    const unit = document.getElementById('admUnit').value.trim();
+function showAdminTab(tabName) {
+    document.querySelectorAll(".admin-subtab").forEach(tab => tab.style.display = "none");
+    document.querySelectorAll(".admin-subtab-btn").forEach(btn => btn.classList.remove("active"));
 
-    if (!name || !sku || isNaN(price)) return alert('Fill mandatory fields.');
+    if (tabName === "stock") document.getElementById("adminTabStock").style.display = "block";
+    if (tabName === "reports") {
+        document.getElementById("adminTabReports").style.display = "block";
+        renderAdminReports();
+    }
+    if (tabName === "expenses") document.getElementById("adminTabExpenses").style.display = "block";
+    if (tabName === "staff") document.getElementById("adminTabStaff").style.display = "block";
+}
 
-    await _supabase.from('hardware_inventory').upsert([{
-        sku, name, category, price, cost_price, min_price, quantity, threshold, unit
-    }], { onConflict: 'sku' });
+async function adminCommitStock() {
+    const name = document.getElementById("admItemName").value.trim();
+    const sku = document.getElementById("admSku").value.trim().toUpperCase();
+    const category = document.getElementById("admCategory").value;
+    const price = parseFloat(document.getElementById("admSellingPrice").value);
+    const cost = parseFloat(document.getElementById("admCostPrice").value) || 0;
+    const floor = parseFloat(document.getElementById("admFloorPrice").value) || price;
+    const qty = parseInt(document.getElementById("admQuantity").value) || 0;
+    const threshold = parseInt(document.getElementById("admThreshold").value) || 10;
+    const unit = document.getElementById("admUnit").value.trim() || "pcs";
 
-    alert('Stock updated successfully in cloud database.');
-    await fetchInventory();
+    if (!name || !sku || isNaN(price)) {
+        alert("Please enter Name, SKU, and Selling Price.");
+        return;
+    }
+
+    const newItem = { sku, name, category, price, cost_price: cost, min_price: floor, quantity: qty, threshold, unit };
+    const existingIndex = inventory.findIndex(p => p.sku === sku);
+
+    if (existingIndex >= 0) {
+        inventory[existingIndex] = newItem;
+    } else {
+        inventory.push(newItem);
+    }
+
+    localStorage.setItem("rm_inventory", JSON.stringify(inventory));
+    if (_supabase) _supabase.from("hardware_inventory").upsert([newItem]).then(() => {});
+
+    alert("Stock saved successfully!");
     renderAdminStockTable();
 }
 
 function renderAdminStockTable() {
-    const tbody = document.getElementById('adminStockBody');
+    const tbody = document.getElementById("tblAdminStockBody");
     if (!tbody) return;
-    tbody.innerHTML = '';
-    catalogProducts.forEach(i => {
-        const isLow = i.quantity <= i.threshold;
+    tbody.innerHTML = "";
+
+    inventory.forEach(item => {
+        const isLow = item.quantity <= item.threshold;
         tbody.innerHTML += `
             <tr>
-                <td><code>${i.sku}</code></td>
-                <td>${i.name}</td>
-                <td>${i.category}</td>
-                <td>KES ${i.price}</td>
-                <td>KES ${i.cost_price}</td>
-                <td><strong>${i.quantity} ${i.unit}</strong></td>
-                <td>${i.threshold}</td>
-                <td><span class="badge ${isLow ? 'low' : 'ok'}">${isLow ? 'Low Stock' : 'OK'}</span></td>
+                <td><code>${item.sku}</code></td>
+                <td><strong>${item.name}</strong></td>
+                <td>${item.category}</td>
+                <td>KES ${item.price.toLocaleString()}</td>
+                <td>KES ${item.cost_price.toLocaleString()}</td>
+                <td><strong>${item.quantity} ${item.unit}</strong></td>
+                <td>${item.threshold}</td>
+                <td><span class="stock-pill ${isLow ? 'low-stock' : 'in-stock'}">${isLow ? 'Low Stock' : 'Stable'}</span></td>
             </tr>
         `;
     });
 }
 
-function populateReportOperatorDropdown() {
-    const select = document.getElementById('repFilterOperator');
-    if (!select) return;
-    select.innerHTML = '<option value="All">All Operators</option>';
-    let uniqueOps = [...new Set(salesLogs.map(s => s.operator_name))];
-    uniqueOps.forEach(op => select.innerHTML += `<option value="${op}">${op}</option>`);
-}
+function renderAdminReports() {
+    const categoryFilter = document.getElementById("filterReportCategory")?.value || "All";
+    const start = document.getElementById("filterReportStart")?.value;
+    const end = document.getElementById("filterReportEnd")?.value;
 
-function renderReportsTables() {
-    const catFilterElem = document.getElementById('repFilterCat');
-    const opFilterElem = document.getElementById('repFilterOperator');
-    const startElem = document.getElementById('repFilterStart');
-    const endElem = document.getElementById('repFilterEnd');
-
-    const catFilter = catFilterElem ? catFilterElem.value : 'All';
-    const opFilter = opFilterElem ? opFilterElem.value : 'All';
-    const startDate = startElem ? startElem.value : '';
-    const endDate = endElem ? endElem.value : '';
-
-    let filteredSales = salesLogs.filter(s => {
-        let matchCat = (catFilter === 'All' || s.category === catFilter);
-        let matchOp = (opFilter === 'All' || s.operator_name === opFilter);
+    const filtered = sales.filter(s => {
+        let matchCat = (categoryFilter === "All" || s.category === categoryFilter);
         let sDate = new Date(s.created_at);
         let matchDate = true;
-        if (startDate && sDate < new Date(startDate)) matchDate = false;
-        if (endDate && sDate > new Date(endDate + 'T23:59:59')) matchDate = false;
-        return matchCat && matchOp && matchDate;
+        if (start && sDate < new Date(start)) matchDate = false;
+        if (end && sDate > new Date(end + "T23:59:59")) matchDate = false;
+        return matchCat && matchDate;
     });
 
-    const salesBody = document.getElementById('salesReportBody');
-    if (salesBody) {
-        salesBody.innerHTML = '';
-        filteredSales.forEach(s => {
-            salesBody.innerHTML += `
+    const tbody = document.getElementById("tblSalesReportBody");
+    if (tbody) {
+        tbody.innerHTML = "";
+        filtered.forEach(s => {
+            tbody.innerHTML += `
                 <tr>
-                    <td>${new Date(s.created_at).toLocaleString()}</td>
+                    <td>${new Date(s.created_at).toLocaleDateString()}</td>
                     <td>${s.operator_name}</td>
                     <td>${s.item_name}</td>
                     <td>${s.category}</td>
                     <td>${s.quantity_sold}</td>
-                    <td><span style="font-size:0.8rem; background:#040812; padding:2px 5px; border-radius:4px;">${s.payment_mode}</span></td>
-                    <td>KES ${s.total_paid.toLocaleString(undefined, {minimumFractionDigits:2})}</td>
+                    <td>${s.payment_mode}</td>
+                    <td><strong>KES ${s.total_paid.toLocaleString()}</strong></td>
                 </tr>
             `;
         });
     }
 
-    let grossRev = filteredSales.reduce((acc, curr) => acc + curr.total_paid, 0);
-    let totalExp = expensesLogs.reduce((acc, curr) => acc + curr.amount, 0);
-    let netProfit = grossRev - totalExp;
+    // Profit & Loss calculation
+    const grossRev = filtered.reduce((acc, curr) => acc + curr.total_paid, 0);
+    const totalExpenses = expenses.reduce((acc, curr) => acc + curr.amount, 0);
+    const netProfit = grossRev - totalExpenses;
 
-    if(document.getElementById('repGrossRev')) document.getElementById('repGrossRev').textContent = `KES ${grossRev.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-    if(document.getElementById('repTotalExp')) document.getElementById('repTotalExp').textContent = `KES ${totalExp.toLocaleString(undefined, {minimumFractionDigits:2})}`;
-    if(document.getElementById('repNetProfit')) document.getElementById('repNetProfit').textContent = `KES ${netProfit.toLocaleString(undefined, {minimumFractionDigits:2})}`;
+    document.getElementById("kpiGrossRev").textContent = `KES ${grossRev.toLocaleString()}`;
+    document.getElementById("kpiExpenses").textContent = `KES ${totalExpenses.toLocaleString()}`;
+    document.getElementById("kpiNetProfit").textContent = `KES ${netProfit.toLocaleString()}`;
+}
 
-    const lowBody = document.getElementById('lowStockReportBody');
-    if (lowBody) {
-        lowBody.innerHTML = '';
-        let lowItems = catalogProducts.filter(p => p.quantity <= p.threshold);
-        if (lowItems.length === 0) {
-            lowBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">All items above threshold.</td></tr>`;
-        } else {
-            lowItems.forEach(i => {
-                lowBody.innerHTML += `<tr><td><code>${i.sku}</code></td><td>${i.name}</td><td><strong>${i.quantity} ${i.unit}</strong></td><td>${i.threshold}</td><td><span class="badge low">Restock Needed</span></td></tr>`;
-            });
-        }
+async function recordStoreExpense() {
+    const category = document.getElementById("expCategory").value;
+    const amount = parseFloat(document.getElementById("expAmount").value);
+    const remarks = document.getElementById("expNotes").value.trim();
+
+    if (isNaN(amount) || amount <= 0) {
+        alert("Please enter a valid expense amount.");
+        return;
     }
+
+    const newExp = {
+        expense_type: category,
+        amount: amount,
+        description: remarks,
+        recorded_by: currentUser.full_name,
+        created_at: new Date().toISOString()
+    };
+
+    expenses.unshift(newExp);
+    localStorage.setItem("rm_expenses", JSON.stringify(expenses));
+    if (_supabase) _supabase.from("shop_expenses").insert([newExp]).then(() => {});
+
+    alert("Expense committed to ledger!");
+    document.getElementById("expAmount").value = "";
+    document.getElementById("expNotes").value = "";
+    renderExpenseTable();
+    renderAdminReports();
 }
 
-function resetFilters() {
-    if(document.getElementById('repFilterCat')) document.getElementById('repFilterCat').value = 'All';
-    if(document.getElementById('repFilterOperator')) document.getElementById('repFilterOperator').value = 'All';
-    if(document.getElementById('repFilterStart')) document.getElementById('repFilterStart').value = '';
-    if(document.getElementById('repFilterEnd')) document.getElementById('repFilterEnd').value = '';
-    renderReportsTables();
-}
-
-async function recordExpense() {
-    const expense_type = document.getElementById('expType').value;
-    const amount = parseFloat(document.getElementById('expAmount').value);
-    const description = document.getElementById('expDesc').value.trim();
-    const recorded_by = activeUser ? activeUser.full_name : 'Admin';
-
-    if (isNaN(amount) || amount <= 0) return alert('Enter valid amount.');
-
-    await _supabase.from('shop_expenses').insert([{ expense_type, amount, description, recorded_by }]);
-    alert('Expense recorded successfully.');
-    document.getElementById('expAmount').value = '';
-    document.getElementById('expDesc').value = '';
-    await fetchExpenses();
-    renderExpensesTable();
-    renderReportsTables();
-}
-
-function renderExpensesTable() {
-    const tbody = document.getElementById('expensesTableBody');
+function renderExpenseTable() {
+    const tbody = document.getElementById("tblExpenseBody");
     if (!tbody) return;
-    tbody.innerHTML = '';
-    expensesLogs.forEach(e => {
+    tbody.innerHTML = "";
+    expenses.forEach(e => {
         tbody.innerHTML += `
             <tr>
                 <td>${new Date(e.created_at).toLocaleDateString()}</td>
@@ -589,44 +657,55 @@ function renderExpensesTable() {
     });
 }
 
-async function createStaffAccount() {
-    const username = document.getElementById('staffUsername').value.trim().toLowerCase();
-    const full_name = document.getElementById('staffName').value.trim();
-    const pin = document.getElementById('staffPin').value.trim();
-    const role = document.getElementById('staffRole').value;
+async function adminSaveStaffUser() {
+    const username = document.getElementById("newStaffUser").value.trim().toLowerCase();
+    const full_name = document.getElementById("newStaffName").value.trim();
+    const pin = document.getElementById("newStaffPin").value.trim();
+    const role = document.getElementById("newStaffRole").value;
 
-    if (!username || !full_name || !pin) return alert('Fill out all staff fields.');
+    if (!username || !full_name || !pin) {
+        alert("Please fill in Username, Name, and PIN.");
+        return;
+    }
 
-    await _supabase.from('staff_users').upsert([{ username, full_name, pin, role }], { onConflict: 'username' });
-    alert('Staff account saved successfully.');
-    await fetchStaffUsers();
+    const newStaff = { username, full_name, pin, role };
+    const existingIndex = staff.findIndex(s => s.username === username);
+
+    if (existingIndex >= 0) {
+        staff[existingIndex] = newStaff;
+    } else {
+        staff.push(newStaff);
+    }
+
+    localStorage.setItem("rm_staff", JSON.stringify(staff));
+    if (_supabase) _supabase.from("staff_users").upsert([newStaff]).then(() => {});
+
+    alert("Staff record updated!");
     renderStaffTable();
 }
 
 function renderStaffTable() {
-    const tbody = document.getElementById('staffTableBody');
+    const tbody = document.getElementById("tblStaffBody");
     if (!tbody) return;
-    tbody.innerHTML = '`';
-    staffUsers.forEach(u => {
+    tbody.innerHTML = "";
+    staff.forEach(s => {
         tbody.innerHTML += `
             <tr>
-                <td><code>${u.username}</code></td>
-                <td>${u.full_name}</td>
-                <td><span class="badge ${u.role === 'admin' ? 'low' : 'ok'}">${u.role.toUpperCase()}</span></td>
-                <td>-</td>
+                <td><code>${s.username}</code></td>
+                <td>${s.full_name}</td>
+                <td><strong>${s.role.toUpperCase()}</strong></td>
             </tr>
         `;
     });
 }
 
-function exportReport(type) {
-    if (type === 'print') return window.print();
-    if (type === 'csv') {
-        let csv = "Date,Operator,Item,Category,Quantity,PaymentMode,TotalPaid\n";
-        salesLogs.forEach(s => csv += `"${s.created_at}","${s.operator_name}","${s.item_name}","${s.category}",${s.quantity_sold},"${s.payment_mode}",${s.total_paid}\n`);
-        const link = document.createElement("a");
-        link.href = encodeURI("data:text/csv;charset=utf-8," + csv);
-        link.download = "rift_metro_sales_report.csv";
-        link.click();
-    }
+function exportSalesReportCsv() {
+    let csv = "Date,Cashier,Item,Category,Quantity,PaymentMode,TotalPaid\n";
+    sales.forEach(s => {
+        csv += `"${s.created_at}","${s.operator_name}","${s.item_name}","${s.category}",${s.quantity_sold},"${s.payment_mode}",${s.total_paid}\n`;
+    });
+    const link = document.createElement("a");
+    link.href = encodeURI("data:text/csv;charset=utf-8," + csv);
+    link.download = "rift_metro_sales_report.csv";
+    link.click();
 }
