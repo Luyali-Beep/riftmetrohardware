@@ -18,9 +18,9 @@
         </div>
         <div class="role-selector">
             <span id="current-user-display" style="font-size:0.85rem; color:var(--gold-accent); margin-right:10px;">Mode: Customer</span>
-            <button onclick="switchRole('viewer')" class="role-btn active" id="btn-viewer">Catalog</button>
-            <button onclick="promptLogin('operator')" class="role-btn" id="btn-operator">Operator Desk</button>
-            <button onclick="promptLogin('admin')" class="role-btn" id="btn-admin">Admin Portal</button>
+            <button onclick="handleNavClick('viewer')" class="role-btn active" id="btn-viewer">Catalog</button>
+            <button onclick="handleNavClick('operator')" class="role-btn" id="btn-operator">Operator Desk</button>
+            <button onclick="handleNavClick('admin')" class="role-btn" id="btn-admin">Admin Portal</button>
             <button onclick="logoutSession()" class="role-btn" id="btn-logout" style="display:none; background:#ff5555; color:#fff;">Logout</button>
         </div>
     </header>
@@ -43,7 +43,7 @@
         <!-- LOGIN MODAL / PROMPT VIEW -->
         <div id="view-login" class="app-view">
             <div class="login-box">
-                <h2>Staff Secure Login</h2>
+                <h2 id="loginTitleHeading">Staff Secure Login</h2>
                 <p id="loginRolePrompt" style="color:var(--text-muted); font-size:0.9rem;">Enter your credentials to access system</p>
                 <div class="form-group" style="text-align:left;">
                     <label>Username / Staff ID:</label>
@@ -54,6 +54,7 @@
                     <input type="password" id="loginPin" placeholder="****">
                 </div>
                 <button class="action-btn" onclick="executeLogin()">Authenticate Login</button>
+                <button class="action-btn secondary" onclick="cancelLogin()" style="margin-top:10px;">Cancel / Back to Catalog</button>
                 <p style="margin-top:15px; font-size:0.8rem;"><a href="#" onclick="triggerPasswordReset()" style="color:var(--gold-accent);">Forgot Admin Password?</a></p>
             </div>
         </div>
@@ -85,7 +86,7 @@
         <div id="view-operator" class="app-view">
             <div class="operator-layout">
                 <div class="pos-panel">
-                    <h2>🛍️ Point of Sale & Receiptming Desk</h2>
+                    <h2>🛍️ Point of Sale & Receipting Desk</h2>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Operator:</label>
