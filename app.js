@@ -1,5 +1,5 @@
 // ==========================================================
-// RIFT METRO HARDWARE - SYSTEM CONTROLLER (PRO EDITION)
+// RIFT METRO HARDWARE - SYSTEM CONTROLLER (GATEWAY EDITION)
 // ==========================================================
 const SUPABASE_URL = 'https://htfmtwrbqrytjfnsulow.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_apSmCIhXSUOENc9lRbDoJA_-hg0EQK3';
@@ -42,6 +42,7 @@ let expenses = [];
 let inquiries = [];
 let cart = [];
 let currentUser = null; 
+let pendingTargetRole = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
     shopSettings = JSON.parse(localStorage.getItem("rm_settings")) || DEFAULT_SETTINGS;
@@ -107,48 +108,48 @@ function updateSyncStatus(isOnline) {
     }
 }
 
-// NAVIGATION ROUTING
+// BULLETPROOF NAVIGATION ROUTING & IDENTITY GATEWAY MODAL
 function handleNavClick(role) {
     if (role === 'viewer') {
         switchRole('viewer');
         return;
     }
-    if (currentUser && ((role === 'operator' && (currentUser.role === 'operator' || currentUser.role === 'admin')) || (role === 'admin' && currentUser.role === 'admin'))) {
-        switchRole(role);
-    } else {
-        promptLogin(role);
-    }
-}
 
-function promptLogin(role) {
-    document.querySelectorAll(".app-view").forEach(v => v.classList.remove("active"));
-    document.getElementById("view-login").classList.add("active");
-    document.getElementById("searchBarSection").style.display = "none";
-    document.getElementById("loginRolePrompt").textContent = `Enter authorized security credentials for ${role.toUpperCase()} terminal`;
-    document.getElementById("loginUser").dataset.targetRole = role;
+    // If user is already logged in with proper permissions, switch right away
+    if (currentUser) {
+        if (role === 'operator' && (currentUser.role === 'operator' || currentUser.role === 'admin')) {
+            switchRole('operator');
+            return;
+        }
+        if (role === 'admin' && currentUser.role === 'admin') {
+            switchRole('admin');
+            return;
+        }
+    }
+
+    // Otherwise, trigger the Modal Identity Gateway login dialog cleanly
+    pendingTargetRole = role;
+    document.getElementById("loginRolePrompt").textContent = `Enter secure credentials for ${role.toUpperCase()} terminal`;
     document.getElementById("loginUser").value = "";
     document.getElementById("loginPin").value = "";
+    document.getElementById("loginModal").style.display = "flex";
 }
 
-function cancelLogin() {
-    if (currentUser) {
-        switchRole(currentUser.role === 'admin' ? 'admin' : 'operator');
-    } else {
-        switchRole('viewer');
-    }
+function closeLoginModal() {
+    document.getElementById("loginModal").style.display = "none";
+    pendingTargetRole = null;
 }
 
 async function executeLogin() {
     const user = document.getElementById("loginUser").value.trim().toLowerCase();
     const pin = document.getElementById("loginPin").value.trim();
-    const targetRole = document.getElementById("loginUser").dataset.targetRole;
 
     const staffMember = staff.find(u => u.username.toLowerCase() === user && u.pin === pin);
     if (!staffMember) {
         alert("Authentication Failed: Invalid Username or Security PIN.");
         return;
     }
-    if (targetRole === 'admin' && staffMember.role !== 'admin') {
+    if (pendingTargetRole === 'admin' && staffMember.role !== 'admin') {
         alert("Access Denied: Administrative security clearance required.");
         return;
     }
@@ -157,6 +158,7 @@ async function executeLogin() {
     document.getElementById("current-user-display").textContent = `Active: ${staffMember.full_name} (${staffMember.role.toUpperCase()})`;
     document.getElementById("btn-logout").style.display = "inline-block";
 
+    closeLoginModal();
     switchRole(staffMember.role === 'admin' ? 'admin' : 'operator');
 }
 
@@ -217,7 +219,7 @@ function renderViewerCatalog() {
     });
 
     if (filtered.length === 0) {
-        grid.innerHTML = `<div class="empty-state-card"><p>No matching hardware items found in catalog criteria.</p></div>`;
+        grid.innerHTML = `<div class="empty-state-card" style="grid-column:1/-1; text-align:center; padding:40px; color:var(--text-muted);"><p>No matching hardware items found in catalog criteria.</p></div>`;
         return;
     }
 
