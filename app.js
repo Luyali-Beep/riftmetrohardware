@@ -1,9 +1,8 @@
 // ==========================================
 // SUPABASE CLOUD CONFIGURATION
 // ==========================================
-// Replace these with your actual Supabase Project URL and public anon key from your Supabase dashboard
-const SUPABASE_URL = 'https://YOUR-SUPABASE-PROJECT-ID.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR-SUPABASE-ANON-KEY';
+const SUPABASE_URL = 'https://htfmtwrbqrytjfnsulow.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_apSmCIhXSUOENc9lRbDoJA_-hg0EQK3';
 
 const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -100,6 +99,7 @@ async function fetchSalesLogs() {
 // ==========================================
 function renderViewerCatalog() {
     const grid = document.getElementById('productGrid');
+    if(!grid) return;
     grid.innerHTML = '';
 
     const search = document.getElementById('searchInput').value.toLowerCase();
@@ -152,6 +152,8 @@ function addToOrderCart(sku) {
 
 function renderOrderCart() {
     const container = document.getElementById('cartItems');
+    if(!container) return;
+    
     if (orderCart.length === 0) {
         container.innerHTML = `<p class="empty-cart">Your order list is empty. Click "Add to Order" on any item.</p>`;
         document.getElementById('cartSubtotal').textContent = 'KES 0.00';
@@ -226,6 +228,7 @@ function sendWhatsAppOrder() {
 // ==========================================
 function populateOperatorDropdown() {
     const select = document.getElementById('posItemSelect');
+    if(!select) return;
     select.innerHTML = '';
     catalogProducts.forEach(p => {
         select.innerHTML += `<option value="${p.sku}">${p.name} (Stock: ${p.quantity} ${p.unit})</option>`;
@@ -234,7 +237,9 @@ function populateOperatorDropdown() {
 }
 
 function updatePosItemDetails() {
-    const sku = document.getElementById('posItemSelect').value;
+    const select = document.getElementById('posItemSelect');
+    if(!select || !select.value) return;
+    const sku = select.value;
     const product = catalogProducts.find(p => p.sku === sku);
     if (!product) return;
 
@@ -244,7 +249,9 @@ function updatePosItemDetails() {
 }
 
 function calculatePosTotal() {
-    const sku = document.getElementById('posItemSelect').value;
+    const select = document.getElementById('posItemSelect');
+    if(!select || !select.value) return;
+    const sku = select.value;
     const product = catalogProducts.find(p => p.sku === sku);
     const qty = parseInt(document.getElementById('posQtyInput').value) || 0;
     const price = parseFloat(document.getElementById('posPriceInput').value) || 0;
@@ -314,6 +321,7 @@ async function completeOperatorSale() {
 
 function renderOperatorLowStock() {
     const container = document.getElementById('operatorLowStockList');
+    if(!container) return;
     container.innerHTML = '';
 
     const lowStockItems = catalogProducts.filter(p => p.quantity <= p.threshold);
@@ -376,6 +384,7 @@ async function adminAddNewStock() {
 
 function renderAdminStockTable() {
     const tbody = document.getElementById('adminStockBody');
+    if(!tbody) return;
     tbody.innerHTML = '';
 
     catalogProducts.forEach(item => {
@@ -398,41 +407,45 @@ function renderAdminStockTable() {
 function renderReportsTables() {
     // Sales Report Table
     const salesBody = document.getElementById('salesReportBody');
-    salesBody.innerHTML = '';
-    salesLogs.forEach(s => {
-        const dateStr = new Date(s.created_at).toLocaleString();
-        salesBody.innerHTML += `
-            <tr>
-                <td>${dateStr}</td>
-                <td><strong>${s.operator_name}</strong></td>
-                <td>${s.item_name} (${s.sku})</td>
-                <td>${s.quantity_sold}</td>
-                <td>KES ${s.total_paid.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-            </tr>
-        `;
-    });
+    if(salesBody) {
+        salesBody.innerHTML = '';
+        salesLogs.forEach(s => {
+            const dateStr = new Date(s.created_at).toLocaleString();
+            salesBody.innerHTML += `
+                <tr>
+                    <td>${dateStr}</td>
+                    <td><strong>${s.operator_name}</strong></td>
+                    <td>${s.item_name} (${s.sku})</td>
+                    <td>${s.quantity_sold}</td>
+                    <td>KES ${s.total_paid.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                </tr>
+            `;
+        });
+    }
 
     // Low Stock Report Table (Items automatically removed when updates exceed threshold)
     const lowBody = document.getElementById('lowStockReportBody');
-    lowBody.innerHTML = '';
-    const lowItems = catalogProducts.filter(p => p.quantity <= p.threshold);
-    
-    if(lowItems.length === 0) {
-        lowBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No items currently below threshold level.</td></tr>`;
-        return;
-    }
+    if(lowBody) {
+        lowBody.innerHTML = '';
+        const lowItems = catalogProducts.filter(p => p.quantity <= p.threshold);
+        
+        if(lowItems.length === 0) {
+            lowBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No items currently below threshold level.</td></tr>`;
+            return;
+        }
 
-    lowItems.forEach(item => {
-        lowBody.innerHTML += `
-            <tr>
-                <td><code>${item.sku}</code></td>
-                <td>${item.name}</td>
-                <td><strong style="color:var(--neon-magenta);">${item.quantity} ${item.unit}</strong></td>
-                <td>${item.threshold}</td>
-                <td>Restock Needed Immediately</td>
-            </tr>
-        `;
-    });
+        lowItems.forEach(item => {
+            lowBody.innerHTML += `
+                <tr>
+                    <td><code>${item.sku}</code></td>
+                    <td>${item.name}</td>
+                    <td><strong style="color:var(--neon-magenta);">${item.quantity} ${item.unit}</strong></td>
+                    <td>${item.threshold}</td>
+                    <td>Restock Needed Immediately</td>
+                </tr>
+            `;
+        });
+    }
 }
 
 async function saveSettings() {
