@@ -12,11 +12,10 @@
 </head>
 <body>
 
-    <!-- GLOBAL INVENTORY DATALIST (For Autocomplete Search) -->
     <datalist id="inventoryDatalist"></datalist>
 
-    <!-- BRAND HEADER & STICKY NAVIGATION -->
-    <header class="site-header">
+    <!-- BRAND HEADER -->
+    <header class="site-header no-print">
         <div class="brand-container">
             <div class="brand-logo-icon">⚡</div>
             <div>
@@ -31,39 +30,33 @@
             <span id="connection-status" class="badge online">Cloud Synced</span>
         </div>
         <div class="role-selector-bar">
-            <span id="current-user-display" class="user-badge-text">Mode: Customer Catalog</span>
+            <span id="current-user-display" class="user-badge-text">Mode: Customer</span>
             <button onclick="handleNavClick('viewer')" class="role-btn active" id="btn-viewer">Catalog</button>
             <button onclick="handleNavClick('operator')" class="role-btn" id="btn-operator">Operator Desk</button>
             <button onclick="handleNavClick('admin')" class="role-btn" id="btn-admin">Admin Portal</button>
             <button onclick="logoutSession()" class="role-btn logout-action" id="btn-logout" style="display:none;">Logout</button>
-            
-            <!-- SMART PWA INSTALL BUTTON (Hidden by default, shown via JS if supported) -->
-            <button id="btn-install-app" class="role-btn" style="display:none; background:var(--neon-green); color:#000; border-color:var(--neon-green);">📲 Install App</button>
+            <button id="btn-install-app" class="role-btn" style="display:none; background:var(--neon-green); color:#000;">📲 Install App</button>
         </div>
     </header>
 
-    <!-- ADVANCED SEARCH (CUSTOMER CATALOG) -->
-    <section class="search-section" id="searchBarSection">
+    <!-- CUSTOMER SEARCH -->
+    <section class="search-section no-print" id="searchBarSection">
         <div class="search-input-wrapper">
             <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" placeholder="Search cement, steel bars, mabati, plumbing, paint..." oninput="filterCatalog()">
+            <input type="text" id="searchInput" placeholder="Search cement, steel bars, mabati..." oninput="filterCatalog()">
         </div>
         <select id="categoryFilter" onchange="filterCatalog()">
             <option value="All">All Categories</option>
-            <option value="Cement">Cement</option>
-            <option value="Steel Bars">Steel Bars</option>
-            <option value="Mabati">Mabati</option>
-            <option value="Plumbing">Plumbing</option>
-            <option value="Electrical Supplies">Electrical Supplies</option>
-            <option value="Paint">Paint</option>
+            <option value="Cement">Cement</option><option value="Steel Bars">Steel Bars</option>
+            <option value="Mabati">Mabati</option><option value="Plumbing">Plumbing</option>
+            <option value="Paint">Paint</option><option value="Electrical Supplies">Electrical Supplies</option>
             <option value="General Hardware">General Hardware</option>
         </select>
     </section>
 
-    <!-- MAIN APP CONTAINER -->
     <main class="main-container">
 
-        <!-- VIEW 1: CUSTOMER CATALOG & CART -->
+        <!-- VIEW 1: CATALOG -->
         <div id="view-viewer" class="app-view active">
             <div class="catalog-layout">
                 <div class="product-grid" id="productGrid"></div>
@@ -72,28 +65,25 @@
                         <h3>🛒 Order Inquiry Basket</h3>
                         <span class="badge ok">WhatsApp Ready</span>
                     </div>
-                    <div id="cartItems" class="cart-items-box">
-                        <p class="empty-cart">Your list is empty. Select items to build an order.</p>
-                    </div>
+                    <div id="cartItems" class="cart-items-box"></div>
                     <div class="cart-summary">
                         <div class="summary-line"><span>Subtotal:</span> <span id="cartSubtotal">KES 0.00</span></div>
                         <div class="summary-line"><span>VAT (16%):</span> <span id="cartVat">KES 0.00</span></div>
-                        <div class="summary-line total-line"><span>Estimated Total:</span> <span id="cartTotal">KES 0.00</span></div>
+                        <div class="summary-line total-line"><span>Total:</span> <span id="cartTotal">KES 0.00</span></div>
                     </div>
                     <button class="action-btn whatsapp-btn" onclick="sendWhatsAppOrder()">Send Order via WhatsApp 📱</button>
                 </div>
             </div>
         </div>
 
-        <!-- VIEW 2: OPERATOR DESK (MULTI-ITEM POS) -->
-        <div id="view-operator" class="app-view">
+        <!-- VIEW 2: OPERATOR POS -->
+        <div id="view-operator" class="app-view no-print">
             <div class="operator-layout">
                 <div class="pos-panel">
                     <h2>🛍️ Multi-Item POS Terminal</h2>
-                    
                     <div class="form-row flex-aligned-row">
                         <div class="form-group flex-2" style="margin:0;">
-                            <label>Search & Select Item (Name or SKU)</label>
+                            <label>Search Item</label>
                             <input type="text" id="posItemSearch" list="inventoryDatalist" placeholder="Type name or SKU..." onchange="updatePosItemDetails()">
                         </div>
                         <div class="form-group flex-1" style="margin:0;">
@@ -101,7 +91,7 @@
                             <input type="number" id="posQtyInput" min="1" value="1">
                         </div>
                         <div class="form-group flex-1" style="margin:0;">
-                            <label>Unit Price</label>
+                            <label>Price</label>
                             <input type="number" id="posPriceInput">
                         </div>
                         <button class="action-btn flex-btn" onclick="addPosItemToCart()">+ Add</button>
@@ -109,7 +99,6 @@
                     <div class="inventory-hint-box" id="posInventoryHint">Stock: -- | Floor Limit: KES --</div>
                     
                     <div id="posOperatorCart" class="pos-cart-box"></div>
-
                     <div class="checkout-summary-box">
                         <div class="summary-line"><span>Subtotal:</span> <span id="posSubtotal">KES 0.00</span></div>
                         <div class="summary-line total-line"><span>Final Amount Due:</span> <span id="posFinalTotal">KES 0.00</span></div>
@@ -119,35 +108,29 @@
                         <div class="form-group flex-1">
                             <label>Payment Mode</label>
                             <select id="posPaymentMode" onchange="togglePosPaymentFields()">
-                                <option value="Cash">Cash Sale</option>
-                                <option value="M-PESA">M-PESA</option>
-                                <option value="Bank/Cheque">Bank Transfer / Cheque</option>
-                                <option value="Credit">Credit / Unpaid</option>
+                                <option value="Cash">Cash Sale</option><option value="M-PESA">M-PESA</option>
+                                <option value="Bank/Cheque">Bank/Cheque</option><option value="Credit">Credit / Unpaid</option>
                             </select>
                         </div>
                         <div class="form-group flex-1 hidden" id="posRefGroup">
-                            <label>Transaction Code / Ref No.</label>
-                            <input type="text" id="posRefCode" placeholder="e.g. QKY... or CHQ...">
+                            <label>Ref No.</label>
+                            <input type="text" id="posRefCode" placeholder="e.g. QKY...">
                         </div>
                     </div>
-
-                    <!-- CREDIT DETAILS -->
                     <div class="form-grid hidden" id="posCreditGroup" style="background:rgba(255,71,87,0.1); padding:15px; border-radius:8px; border:1px solid rgba(255,71,87,0.3); margin-bottom:15px;">
                         <div class="form-group"><label>Customer Name</label><input type="text" id="posCreditName"></div>
                         <div class="form-group"><label>Phone Number</label><input type="text" id="posCreditPhone"></div>
                         <div class="form-group"><label>Due Date</label><input type="date" id="posCreditDate"></div>
                     </div>
-
                     <button class="action-btn success-btn" onclick="completeOperatorSale()">Complete Sale & Print Receipt 🖨️</button>
                 </div>
-
                 <div class="quick-stock-panel">
                     <div class="panel-sub-section">
-                        <h3>📋 Online Orders (Pending)</h3>
+                        <h3>📋 Pending Orders</h3>
                         <div id="operatorInquiriesList" class="mini-list"></div>
                     </div>
                     <div class="panel-sub-section" style="margin-top:20px;">
-                        <h3>⚠️ Low Stock Alerts</h3>
+                        <h3>⚠️ Low Stock</h3>
                         <div id="operatorLowStockList" class="mini-list"></div>
                     </div>
                 </div>
@@ -156,59 +139,49 @@
 
         <!-- VIEW 3: ADMIN PORTAL -->
         <div id="view-admin" class="app-view">
-            <div class="admin-tabs">
-                <button class="tab-btn active" onclick="switchAdminTab('stock', event)">📦 Inventory & Restocking</button>
-                <button class="tab-btn" onclick="switchAdminTab('reports', event)">📊 Sales & Restock Audits</button>
-                <button class="tab-btn" onclick="switchAdminTab('credit', event)">📒 Debtors & Credit</button>
+            <div class="admin-tabs no-print">
+                <button class="tab-btn active" onclick="switchAdminTab('stock', event)">📦 Inventory</button>
+                <button class="tab-btn" onclick="switchAdminTab('reports', event)">📊 Sales & Restocks</button>
+                <button class="tab-btn" onclick="switchAdminTab('credit', event)">📒 Debtors</button>
                 <button class="tab-btn" onclick="switchAdminTab('expenses', event)">💸 Expenses</button>
             </div>
 
             <!-- TAB 1: STOCK -->
             <div id="admin-tab-stock" class="admin-tab-content active">
-                <div class="admin-card" style="border-color:var(--neon-green);">
-                    <h3>Add New Item or Restock Existing</h3>
-                    
-                    <div class="form-group" style="margin-bottom:20px;">
-                        <label>Operation Mode</label>
-                        <select id="admStockMode" onchange="toggleStockMode()">
-                            <option value="restock">Restock / Edit Existing Item</option>
-                            <option value="new">Add Completely New Item</option>
-                        </select>
+                <div class="admin-card no-print" style="border-color:var(--neon-green);">
+                    <h3>Add or Restock Item</h3>
+                    <div class="form-group" style="margin-bottom:15px;">
+                        <select id="admStockMode" onchange="toggleStockMode()"><option value="restock">Restock Existing Item</option><option value="new">Add New Item</option></select>
                     </div>
-
-                    <div class="form-group" id="skuSelectGroup" style="margin-bottom:20px;">
-                        <label>Search Item to Restock (Name or SKU)</label>
-                        <input type="text" id="admItemSearch" list="inventoryDatalist" placeholder="Type to search..." onchange="loadExistingStock()">
+                    <div class="form-group" id="skuSelectGroup" style="margin-bottom:15px;">
+                        <input type="text" id="admItemSearch" list="inventoryDatalist" placeholder="Search item to restock..." onchange="loadExistingStock()">
                     </div>
-
                     <div class="form-grid" id="stockFieldsGrid">
-                        <div class="form-group"><label>SKU Code</label><input type="text" id="admSku" placeholder="e.g. CEM-001" readonly></div>
+                        <div class="form-group"><label>SKU</label><input type="text" id="admSku" readonly></div>
                         <div class="form-group"><label>Item Name</label><input type="text" id="admName"></div>
-                        <div class="form-group">
-                            <label>Category</label>
-                            <select id="admCategory">
-                                <option value="Cement">Cement</option><option value="Steel Bars">Steel Bars</option>
-                                <option value="Mabati">Mabati</option><option value="Plumbing">Plumbing</option>
-                                <option value="Paint">Paint</option><option value="General Hardware">General Hardware</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>Selling Price (KES)</label><input type="number" id="admPrice"></div>
-                        <div class="form-group"><label>Cost Price (KES)</label><input type="number" id="admCostPrice"></div>
-                        <div class="form-group"><label>Floor Limit Price (KES)</label><input type="number" id="admMinPrice"></div>
-                        <div class="form-group"><label id="lblQtyAdd">Quantity to Add (Restock)</label><input type="number" id="admQty" placeholder="0"></div>
-                        <div class="form-group"><label>Low Stock Threshold</label><input type="number" id="admThreshold"></div>
-                        <div class="form-group"><label>Unit of Measure</label><input type="text" id="admUnit" placeholder="bag / pcs"></div>
+                        <div class="form-group"><label>Category</label><select id="admCategory"><option value="Cement">Cement</option><option value="Steel Bars">Steel Bars</option><option value="Mabati">Mabati</option><option value="Plumbing">Plumbing</option><option value="Paint">Paint</option><option value="General Hardware">General Hardware</option></select></div>
+                        <div class="form-group"><label>Selling Price</label><input type="number" id="admPrice"></div>
+                        <div class="form-group"><label>Cost Price</label><input type="number" id="admCostPrice"></div>
+                        <div class="form-group"><label>Floor Price</label><input type="number" id="admMinPrice"></div>
+                        <div class="form-group"><label id="lblQtyAdd">Qty to Add</label><input type="number" id="admQty" placeholder="0"></div>
+                        <div class="form-group"><label>Threshold</label><input type="number" id="admThreshold"></div>
+                        <div class="form-group"><label>Unit</label><input type="text" id="admUnit" placeholder="bag / pcs"></div>
                     </div>
-                    <button class="action-btn success-btn" id="btnSaveStock" onclick="adminSaveStock()">Apply Restock Update</button>
+                    <button class="action-btn success-btn" id="btnSaveStock" onclick="adminSaveStock()">Apply Update</button>
                 </div>
 
-                <div class="admin-card">
-                    <h3>Active Store Inventory Register</h3>
+                <div class="admin-card" id="print-stock-section">
+                    <div class="filter-toolbar no-print">
+                        <input type="text" id="filterStockQuery" placeholder="Search Inventory..." oninput="renderAdminStockTable()">
+                        <select id="filterStockCat" onchange="renderAdminStockTable()">
+                            <option value="All">All Categories</option><option value="Cement">Cement</option><option value="Steel Bars">Steel Bars</option><option value="Mabati">Mabati</option><option value="Plumbing">Plumbing</option><option value="Paint">Paint</option><option value="General Hardware">General Hardware</option>
+                        </select>
+                        <button class="action-btn secondary flex-btn" onclick="printSection('print-stock-section')">🖨️ Print Stock</button>
+                    </div>
+                    <h3 class="print-only-title">Current Inventory Register</h3>
                     <div class="table-responsive">
                         <table>
-                            <thead>
-                                <tr><th>SKU</th><th>Item Name</th><th>Price</th><th>Cost</th><th>Qty Left</th><th>Threshold</th><th>Status</th></tr>
-                            </thead>
+                            <thead><tr><th>SKU</th><th>Name</th><th>Price</th><th>Cost</th><th>Qty Left</th><th>Threshold</th><th>Status</th></tr></thead>
                             <tbody id="adminStockBody"></tbody>
                         </table>
                     </div>
@@ -217,10 +190,7 @@
 
             <!-- TAB 2: REPORTS -->
             <div id="admin-tab-reports" class="admin-tab-content">
-                <div class="reports-toolbar">
-                    <button class="action-btn" onclick="window.print()">Print Official Report</button>
-                </div>
-                <div class="admin-card financial-banner">
+                <div class="admin-card financial-banner no-print">
                     <h3>💰 Financial Summary</h3>
                     <div class="metrics-grid">
                         <div class="metric-box"><span>Gross Sales</span><h3 id="repGrossRev" style="color:var(--neon-green);">KES 0.00</h3></div>
@@ -229,8 +199,13 @@
                     </div>
                 </div>
 
-                <div class="admin-card">
-                    <h3>Sales Audit Ledger (Items OUT)</h3>
+                <div class="admin-card" id="print-sales-section">
+                    <div class="filter-toolbar no-print">
+                        <input type="date" id="filterSalesStart" onchange="renderReportsTables()">
+                        <input type="date" id="filterSalesEnd" onchange="renderReportsTables()">
+                        <button class="action-btn secondary flex-btn" onclick="printSection('print-sales-section')">🖨️ Print Sales</button>
+                    </div>
+                    <h3 class="print-only-title">Sales Audit Ledger</h3>
                     <div class="table-responsive">
                         <table>
                             <thead><tr><th>Receipt No</th><th>Date</th><th>Operator</th><th>Items Sold</th><th>Mode</th><th>Ref Code</th><th>Total Paid</th></tr></thead>
@@ -239,8 +214,11 @@
                     </div>
                 </div>
 
-                <div class="admin-card">
-                    <h3>Restock History Ledger (Items IN)</h3>
+                <div class="admin-card" id="print-restock-section">
+                    <div class="filter-toolbar no-print">
+                        <button class="action-btn secondary flex-btn" onclick="printSection('print-restock-section')">🖨️ Print Restocks</button>
+                    </div>
+                    <h3 class="print-only-title">Restock History Ledger</h3>
                     <div class="table-responsive">
                         <table>
                             <thead><tr><th>Date</th><th>Item</th><th>SKU</th><th>Qty Added</th><th>New Total Qty</th><th>Operator</th></tr></thead>
@@ -250,13 +228,21 @@
                 </div>
             </div>
 
-            <!-- TAB 3: CREDIT / DEBTORS -->
+            <!-- TAB 3: DEBTORS -->
             <div id="admin-tab-credit" class="admin-tab-content">
-                <div class="admin-card">
-                    <h3 style="color:var(--crimson-red);">📒 Outstanding Credit & Debtors</h3>
+                <div class="admin-card" id="print-debtors-section">
+                    <div class="filter-toolbar no-print">
+                        <select id="filterDebtorStatus" onchange="renderDebtorsTable()">
+                            <option value="All">All Debtors</option>
+                            <option value="Unpaid">Unpaid / Partial</option>
+                            <option value="Cleared">Cleared</option>
+                        </select>
+                        <button class="action-btn secondary flex-btn" onclick="printSection('print-debtors-section')">🖨️ Print Debtors</button>
+                    </div>
+                    <h3 class="print-only-title" style="color:var(--crimson-red);">Outstanding Credit & Debtors</h3>
                     <div class="table-responsive">
                         <table>
-                            <thead><tr><th>Receipt No</th><th>Customer</th><th>Phone</th><th>Total Bill</th><th>Paid</th><th>Balance</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>Receipt No</th><th>Customer</th><th>Phone</th><th>Bill</th><th>Paid</th><th>Balance</th><th>Due Date</th><th>Status</th><th class="no-print">Actions</th></tr></thead>
                             <tbody id="debtorsTableBody"></tbody>
                         </table>
                     </div>
@@ -265,8 +251,8 @@
 
             <!-- TAB 4: EXPENSES -->
             <div id="admin-tab-expenses" class="admin-tab-content">
-                <div class="admin-card">
-                    <h3>Record Operational Expense</h3>
+                <div class="admin-card no-print">
+                    <h3>Record Expense</h3>
                     <div class="form-grid">
                         <div class="form-group"><label>Category</label><select id="expType"><option>Salary</option><option>Rent</option><option>Transport</option><option>Utilities</option><option>Other</option></select></div>
                         <div class="form-group"><label>Amount (KES)</label><input type="number" id="expAmount"></div>
@@ -274,8 +260,11 @@
                     </div>
                     <button class="action-btn" onclick="recordExpense()">Log Expenditure</button>
                 </div>
-                <div class="admin-card">
-                    <h3>Expenditure Audit Ledger</h3>
+                <div class="admin-card" id="print-expense-section">
+                    <div class="filter-toolbar no-print">
+                        <button class="action-btn secondary flex-btn" onclick="printSection('print-expense-section')">🖨️ Print Expenses</button>
+                    </div>
+                    <h3 class="print-only-title">Expenditure Ledger</h3>
                     <div class="table-responsive">
                         <table>
                             <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Description</th><th>Recorded By</th></tr></thead>
@@ -287,8 +276,8 @@
         </div>
     </main>
 
-    <!-- IDENTITY GATEWAY / STAFF LOGIN MODAL -->
-    <div id="loginModal" class="modal-backdrop" style="display:none;">
+    <!-- MODALS -->
+    <div id="loginModal" class="modal-backdrop no-print" style="display:none;">
         <div class="login-modal-box">
             <div class="login-icon-lock">🔐</div>
             <h2>Staff Authorization Required</h2>
@@ -300,8 +289,7 @@
         </div>
     </div>
 
-    <!-- PARTIAL PAYMENT MODAL -->
-    <div id="paymentModal" class="modal-backdrop" style="display:none;">
+    <div id="paymentModal" class="modal-backdrop no-print" style="display:none;">
         <div class="login-modal-box">
             <h3 style="color:var(--neon-green); margin-top:0;">Record Partial Payment</h3>
             <p style="color:var(--text-muted);">Receipt: <span id="payModalRcpt"></span> | Balance: KES <span id="payModalBal"></span></p>
@@ -314,9 +302,9 @@
         </div>
     </div>
 
-    <!-- THERMAL RECEIPT MODAL -->
+    <!-- THERMAL RECEIPT -->
     <div id="receiptModal" class="modal-backdrop" style="display:none;">
-        <div class="receipt-box">
+        <div class="receipt-box" id="print-receipt-section">
             <div class="receipt-header">
                 <h3>⚡ RIFT METRO HARDWARE</h3>
                 <p id="receiptLocation">Nakuru • Next to Sakinya Motors</p>
@@ -328,16 +316,14 @@
                 <p>Goods once sold are strictly non-returnable.</p>
                 <p><strong>Thank you for doing business with us!</strong></p>
             </div>
-            <div class="receipt-actions">
-                <button onclick="window.print()" class="action-btn" style="width:auto;">Print Receipt</button>
+            <div class="receipt-actions no-print">
+                <button onclick="printSection('print-receipt-section')" class="action-btn" style="width:auto;">Print Receipt</button>
                 <button onclick="closeReceiptModal()" class="action-btn secondary" style="width:auto;">Close Window</button>
             </div>
         </div>
     </div>
 
     <script src="app.js"></script>
-    
-    <!-- PWA UPDATE & INSTALL NOTIFIER SCRIPT -->
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js').then(reg => {
@@ -345,13 +331,11 @@
                     const newWorker = reg.installing;
                     newWorker.addEventListener('statechange', () => {
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            if(confirm("⚡ A new update for Rift Metro POS is available! Reload now to apply changes?")) {
-                                window.location.reload();
-                            }
+                            if(confirm("⚡ Update Available! Reload to apply changes?")) window.location.reload();
                         }
                     });
                 });
-            }).catch(err => console.error("SW Registration failed:", err));
+            }).catch(err => console.error(err));
         }
     </script>
 </body>
