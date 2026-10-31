@@ -28,8 +28,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     renderViewerCatalog();
     renderOrderCart();
-    toggleStockMode(); // Initialize stock form
+    populateSearchDatalist(); // Populate autocomplete right away
+    toggleStockMode(); 
 });
+
+// AUTOCOMPLETE SEARCH DATALIST
+function populateSearchDatalist() {
+    const dl = document.getElementById("inventoryDatalist");
+    if (!dl) return;
+    dl.innerHTML = "";
+    inventory.forEach(p => {
+        dl.innerHTML += `<option value="${p.sku} | ${p.name}">Stock: ${p.quantity} ${p.unit}</option>`;
+    });
+}
 
 // NAVIGATION & LOGIN
 function handleNavClick(role) {
@@ -71,7 +82,7 @@ function switchRole(role) {
             document.getElementById("view-operator").classList.add("active");
             document.getElementById("btn-operator").classList.add("active");
             document.getElementById("opActiveName").value = currentUser.full_name;
-            populateOperatorDropdown(); renderOperatorInquiries(); renderOperatorLowStock();
+            renderOperatorInquiries(); renderOperatorLowStock();
         } else if (role === 'admin') {
             document.getElementById("view-admin").classList.add("active");
             document.getElementById("btn-admin").classList.add("active");
@@ -167,15 +178,13 @@ function sendWhatsAppOrder() {
 }
 
 // MULTI-ITEM POS (OPERATOR DESK)
-function populateOperatorDropdown() {
-    const sel = document.getElementById("posItemSelect");
-    sel.innerHTML = '<option value="">-- Select Item --</option>';
-    inventory.forEach(p => sel.innerHTML += `<option value="${p.sku}">${p.name} (Stock: ${p.quantity})</option>`);
-}
 function updatePosItemDetails() {
-    const sku = document.getElementById("posItemSelect").value;
+    const searchVal = document.getElementById("posItemSearch").value;
+    if (!searchVal) return;
+    const sku = searchVal.split(" | ")[0].trim();
     const item = inventory.find(p => p.sku === sku);
-    if (!item) return;
+    
+    if (!item) return; // Wait until valid selection
     document.getElementById("posInventoryHint").textContent = `Stock Available: ${item.quantity} ${item.unit} | Floor Limit: KES ${item.min_price.toLocaleString()}`;
     document.getElementById("posPriceInput").value = item.price;
 }
@@ -186,12 +195,14 @@ function togglePosPaymentFields() {
 }
 
 function addPosItemToCart() {
-    const sku = document.getElementById("posItemSelect").value;
+    const searchVal = document.getElementById("posItemSearch").value;
+    const sku = searchVal.split(" | ")[0].trim();
     const qty = parseInt(document.getElementById("posQtyInput").value);
     const price = parseFloat(document.getElementById("posPriceInput").value);
+    
     const item = inventory.find(p => p.sku === sku);
     
-    if (!item || isNaN(qty) || qty <= 0) return alert("Select item and valid quantity.");
+    if (!item || isNaN(qty) || qty <= 0) return alert("Select a valid item from the search list and enter a valid quantity.");
     if (qty > item.quantity) return alert(`Insufficient stock. Only ${item.quantity} left.`);
     if (price < item.min_price) return alert(`❌ SALE BLOCKED: Price is below authorized floor limit (KES ${item.min_price}).`);
 
@@ -200,8 +211,11 @@ function addPosItemToCart() {
     else posCart.push({ sku: item.sku, name: item.name, price, qty, unit: item.unit });
     
     renderPosCart();
-    document.getElementById("posItemSelect").value = "";
+    // Clear search for next item
+    document.getElementById("posItemSearch").value = "";
     document.getElementById("posQtyInput").value = "1";
+    document.getElementById("posPriceInput").value = "";
+    document.getElementById("posInventoryHint").textContent = "Stock: -- | Floor Limit: KES --";
 }
 
 function removePosCartItem(idx) { posCart.splice(idx, 1); renderPosCart(); }
@@ -261,6 +275,7 @@ function completeOperatorSale() {
     sales.unshift(sale);
     localStorage.setItem("rm_sales", JSON.stringify(sales));
     localStorage.setItem("rm_inventory", JSON.stringify(inventory));
+    populateSearchDatalist(); // Update stock in datalist
 
     // Print Receipt
     let rcptHTML = `<p><strong>Receipt No:</strong> ${rcptNo}<br><strong>Date:</strong> ${new Date().toLocaleString()}<br><strong>Cashier:</strong> ${currentUser.full_name}<br><strong>Mode:</strong> ${mode} ${refCode ? '('+refCode+')':''}</p><div class="receipt-divider"></div>`;
@@ -274,7 +289,7 @@ function completeOperatorSale() {
     // Reset
     posCart = []; renderPosCart(); document.getElementById("posRefCode").value = "";
     document.getElementById("posCreditName").value = ""; document.getElementById("posCreditPhone").value = "";
-    populateOperatorDropdown(); renderOperatorLowStock();
+    renderOperatorLowStock();
 }
 
 function loadInquiryToPOS(id) {
@@ -305,7 +320,6 @@ function renderOperatorLowStock() {
     low.forEach(i => box.innerHTML += `<div class="mini-row"><span>${i.name}</span><span class="badge low">${i.quantity} left</span></div>`);
 }
 
-
 // ADMIN PORTAL - INVENTORY & RESTOCKING
 function switchAdminTab(tab, e) {
     document.querySelectorAll(".admin-tab-content, .tab-btn").forEach(el => el.classList.remove("active"));
@@ -326,9 +340,7 @@ function toggleStockMode() {
     if (mode === 'restock') {
         selGrp.style.display = 'block'; skuInp.readOnly = true;
         btn.textContent = "Apply Restock Update"; lblQty.textContent = "Quantity to Add (Restock)";
-        const sel = document.getElementById("admExistingSku");
-        sel.innerHTML = '<option value="">-- Pick Item to Restock --</option>';
-        inventory.forEach(i => sel.innerHTML += `<option value="${i.sku}">${i.sku} - ${i.name}</option>`);
+        document.getElementById("admItemSearch").value = "";
     } else {
         selGrp.style.display = 'none'; skuInp.readOnly = false; skuInp.value = "";
         btn.textContent = "Add Brand New Item"; lblQty.textContent = "Initial Total Quantity";
@@ -337,8 +349,11 @@ function toggleStockMode() {
 }
 
 function loadExistingStock() {
-    const sku = document.getElementById("admExistingSku").value;
+    const searchVal = document.getElementById("admItemSearch").value;
+    if (!searchVal) return;
+    const sku = searchVal.split(" | ")[0].trim();
     const item = inventory.find(i => i.sku === sku);
+    
     if (!item) return;
     document.getElementById("admSku").value = item.sku;
     document.getElementById("admName").value = item.name;
@@ -384,6 +399,7 @@ function adminSaveStock() {
 
     if (mode === 'new') inventory.push(item); else Object.assign(target, item);
     localStorage.setItem("rm_inventory", JSON.stringify(inventory));
+    populateSearchDatalist(); // Update datalist with new stock globally
     
     alert(`Success! ${name} stock is now ${newQty}. Pricing updated.`);
     toggleStockMode(); renderAdminStockTable();
@@ -398,7 +414,7 @@ function renderAdminStockTable() {
     });
 }
 
-// REPORTS
+// REPORTS, DEBTORS & CREDIT Functions...
 function renderReportsTables() {
     const sBody = document.getElementById("salesReportBody");
     sBody.innerHTML = "";
@@ -419,7 +435,6 @@ function renderReportsTables() {
     });
 }
 
-// DEBTORS & CREDIT
 function renderDebtorsTable() {
     const tbody = document.getElementById("debtorsTableBody");
     tbody.innerHTML = "";
