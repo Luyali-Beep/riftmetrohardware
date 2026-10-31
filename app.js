@@ -265,6 +265,10 @@ function completeOperatorSale() {
     renderOperatorLowStock();
 }
 
+function closeReceiptModal() {
+    document.getElementById("receiptModal").style.display = "none";
+}
+
 function loadInquiryToPOS(id) {
     const inq = inquiries.find(i => i.id === id);
     if (!inq || !inq.cart_data) return;
