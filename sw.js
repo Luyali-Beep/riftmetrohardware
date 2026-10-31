@@ -1,5 +1,5 @@
 // Change this version name whenever you push new updates to force a refresh!
-const CACHE_NAME = 'rift-metro-v6-stable'; 
+const CACHE_NAME = 'rift-metro-v6.4-stable'; 
 
 const ASSETS_TO_CACHE = [
   './index.html',
