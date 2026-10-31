@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Rift Metro Hardware | Advanced POS System</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="stylesheet" href="style.css">
@@ -36,6 +36,9 @@
             <button onclick="handleNavClick('operator')" class="role-btn" id="btn-operator">Operator Desk</button>
             <button onclick="handleNavClick('admin')" class="role-btn" id="btn-admin">Admin Portal</button>
             <button onclick="logoutSession()" class="role-btn logout-action" id="btn-logout" style="display:none;">Logout</button>
+            
+            <!-- SMART PWA INSTALL BUTTON (Hidden by default, shown via JS if supported) -->
+            <button id="btn-install-app" class="role-btn" style="display:none; background:var(--neon-green); color:#000; border-color:var(--neon-green);">📲 Install App</button>
         </div>
     </header>
 
@@ -88,7 +91,6 @@
                 <div class="pos-panel">
                     <h2>🛍️ Multi-Item POS Terminal</h2>
                     
-                    <!-- NEW SMART SEARCH POS BAR -->
                     <div class="form-row flex-aligned-row">
                         <div class="form-group flex-2" style="margin:0;">
                             <label>Search & Select Item (Name or SKU)</label>
@@ -106,9 +108,7 @@
                     </div>
                     <div class="inventory-hint-box" id="posInventoryHint">Stock: -- | Floor Limit: KES --</div>
                     
-                    <div id="posOperatorCart" class="pos-cart-box">
-                        <!-- Added items go here -->
-                    </div>
+                    <div id="posOperatorCart" class="pos-cart-box"></div>
 
                     <div class="checkout-summary-box">
                         <div class="summary-line"><span>Subtotal:</span> <span id="posSubtotal">KES 0.00</span></div>
@@ -168,7 +168,7 @@
                 <div class="admin-card" style="border-color:var(--neon-green);">
                     <h3>Add New Item or Restock Existing</h3>
                     
-                    <div class="form-group" style="max-width:350px; margin-bottom:20px;">
+                    <div class="form-group" style="margin-bottom:20px;">
                         <label>Operation Mode</label>
                         <select id="admStockMode" onchange="toggleStockMode()">
                             <option value="restock">Restock / Edit Existing Item</option>
@@ -176,8 +176,7 @@
                         </select>
                     </div>
 
-                    <!-- NEW SMART SEARCH RESTOCK BAR -->
-                    <div class="form-group" id="skuSelectGroup" style="max-width:500px; margin-bottom:20px;">
+                    <div class="form-group" id="skuSelectGroup" style="margin-bottom:20px;">
                         <label>Search Item to Restock (Name or SKU)</label>
                         <input type="text" id="admItemSearch" list="inventoryDatalist" placeholder="Type to search..." onchange="loadExistingStock()">
                     </div>
@@ -208,9 +207,7 @@
                     <div class="table-responsive">
                         <table>
                             <thead>
-                                <tr>
-                                    <th>SKU</th><th>Item Name</th><th>Price</th><th>Cost</th><th>Qty Left</th><th>Threshold</th><th>Status</th>
-                                </tr>
+                                <tr><th>SKU</th><th>Item Name</th><th>Price</th><th>Cost</th><th>Qty Left</th><th>Threshold</th><th>Status</th></tr>
                             </thead>
                             <tbody id="adminStockBody"></tbody>
                         </table>
@@ -236,9 +233,7 @@
                     <h3>Sales Audit Ledger (Items OUT)</h3>
                     <div class="table-responsive">
                         <table>
-                            <thead>
-                                <tr><th>Receipt No</th><th>Date</th><th>Operator</th><th>Items Sold</th><th>Mode</th><th>Ref Code</th><th>Total Paid</th></tr>
-                            </thead>
+                            <thead><tr><th>Receipt No</th><th>Date</th><th>Operator</th><th>Items Sold</th><th>Mode</th><th>Ref Code</th><th>Total Paid</th></tr></thead>
                             <tbody id="salesReportBody"></tbody>
                         </table>
                     </div>
@@ -248,9 +243,7 @@
                     <h3>Restock History Ledger (Items IN)</h3>
                     <div class="table-responsive">
                         <table>
-                            <thead>
-                                <tr><th>Date</th><th>Item</th><th>SKU</th><th>Qty Added</th><th>New Total Qty</th><th>Operator</th></tr>
-                            </thead>
+                            <thead><tr><th>Date</th><th>Item</th><th>SKU</th><th>Qty Added</th><th>New Total Qty</th><th>Operator</th></tr></thead>
                             <tbody id="restockReportBody"></tbody>
                         </table>
                     </div>
@@ -263,9 +256,7 @@
                     <h3 style="color:var(--crimson-red);">📒 Outstanding Credit & Debtors</h3>
                     <div class="table-responsive">
                         <table>
-                            <thead>
-                                <tr><th>Receipt No</th><th>Customer</th><th>Phone</th><th>Total Bill</th><th>Paid</th><th>Balance</th><th>Due Date</th><th>Status</th><th>Actions</th></tr>
-                            </thead>
+                            <thead><tr><th>Receipt No</th><th>Customer</th><th>Phone</th><th>Total Bill</th><th>Paid</th><th>Balance</th><th>Due Date</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody id="debtorsTableBody"></tbody>
                         </table>
                     </div>
@@ -277,10 +268,7 @@
                 <div class="admin-card">
                     <h3>Record Operational Expense</h3>
                     <div class="form-grid">
-                        <div class="form-group">
-                            <label>Category</label>
-                            <select id="expType"><option>Salary</option><option>Rent</option><option>Transport</option><option>Utilities</option><option>Other</option></select>
-                        </div>
+                        <div class="form-group"><label>Category</label><select id="expType"><option>Salary</option><option>Rent</option><option>Transport</option><option>Utilities</option><option>Other</option></select></div>
                         <div class="form-group"><label>Amount (KES)</label><input type="number" id="expAmount"></div>
                         <div class="form-group" style="grid-column: span 2;"><label>Description</label><input type="text" id="expDesc"></div>
                     </div>
@@ -348,5 +336,23 @@
     </div>
 
     <script src="app.js"></script>
+    
+    <!-- PWA UPDATE & INSTALL NOTIFIER SCRIPT -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            if(confirm("⚡ A new update for Rift Metro POS is available! Reload now to apply changes?")) {
+                                window.location.reload();
+                            }
+                        }
+                    });
+                });
+            }).catch(err => console.error("SW Registration failed:", err));
+        }
+    </script>
 </body>
 </html>
