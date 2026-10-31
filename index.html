@@ -12,6 +12,9 @@
 </head>
 <body>
 
+    <!-- GLOBAL INVENTORY DATALIST (For Autocomplete Search) -->
+    <datalist id="inventoryDatalist"></datalist>
+
     <!-- BRAND HEADER & STICKY NAVIGATION -->
     <header class="site-header">
         <div class="brand-container">
@@ -36,7 +39,7 @@
         </div>
     </header>
 
-    <!-- ADVANCED SEARCH -->
+    <!-- ADVANCED SEARCH (CUSTOMER CATALOG) -->
     <section class="search-section" id="searchBarSection">
         <div class="search-input-wrapper">
             <span class="search-icon">🔍</span>
@@ -85,11 +88,21 @@
                 <div class="pos-panel">
                     <h2>🛍️ Multi-Item POS Terminal</h2>
                     
-                    <div class="form-row" style="align-items:end; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px; margin-bottom:15px;">
-                        <div class="form-group" style="margin:0;"><label>Select Item</label><select id="posItemSelect" onchange="updatePosItemDetails()"></select></div>
-                        <div class="form-group" style="margin:0; width:100px;"><label>Qty</label><input type="number" id="posQtyInput" min="1" value="1"></div>
-                        <div class="form-group" style="margin:0; width:140px;"><label>Unit Price</label><input type="number" id="posPriceInput"></div>
-                        <button class="action-btn" style="width:auto; padding:11px;" onclick="addPosItemToCart()">+ Add</button>
+                    <!-- NEW SMART SEARCH POS BAR -->
+                    <div class="form-row flex-aligned-row">
+                        <div class="form-group flex-2" style="margin:0;">
+                            <label>Search & Select Item (Name or SKU)</label>
+                            <input type="text" id="posItemSearch" list="inventoryDatalist" placeholder="Type name or SKU..." onchange="updatePosItemDetails()">
+                        </div>
+                        <div class="form-group flex-1" style="margin:0;">
+                            <label>Qty</label>
+                            <input type="number" id="posQtyInput" min="1" value="1">
+                        </div>
+                        <div class="form-group flex-1" style="margin:0;">
+                            <label>Unit Price</label>
+                            <input type="number" id="posPriceInput">
+                        </div>
+                        <button class="action-btn flex-btn" onclick="addPosItemToCart()">+ Add</button>
                     </div>
                     <div class="inventory-hint-box" id="posInventoryHint">Stock: -- | Floor Limit: KES --</div>
                     
@@ -103,7 +116,7 @@
                     </div>
 
                     <div class="form-row" style="margin-bottom:15px;">
-                        <div class="form-group">
+                        <div class="form-group flex-1">
                             <label>Payment Mode</label>
                             <select id="posPaymentMode" onchange="togglePosPaymentFields()">
                                 <option value="Cash">Cash Sale</option>
@@ -112,7 +125,7 @@
                                 <option value="Credit">Credit / Unpaid</option>
                             </select>
                         </div>
-                        <div class="form-group hidden" id="posRefGroup">
+                        <div class="form-group flex-1 hidden" id="posRefGroup">
                             <label>Transaction Code / Ref No.</label>
                             <input type="text" id="posRefCode" placeholder="e.g. QKY... or CHQ...">
                         </div>
@@ -155,7 +168,7 @@
                 <div class="admin-card" style="border-color:var(--neon-green);">
                     <h3>Add New Item or Restock Existing</h3>
                     
-                    <div class="form-group" style="max-width:300px; margin-bottom:20px;">
+                    <div class="form-group" style="max-width:350px; margin-bottom:20px;">
                         <label>Operation Mode</label>
                         <select id="admStockMode" onchange="toggleStockMode()">
                             <option value="restock">Restock / Edit Existing Item</option>
@@ -163,9 +176,10 @@
                         </select>
                     </div>
 
-                    <div class="form-group" id="skuSelectGroup" style="max-width:400px; margin-bottom:20px;">
-                        <label>Select Item to Restock</label>
-                        <select id="admExistingSku" onchange="loadExistingStock()"></select>
+                    <!-- NEW SMART SEARCH RESTOCK BAR -->
+                    <div class="form-group" id="skuSelectGroup" style="max-width:500px; margin-bottom:20px;">
+                        <label>Search Item to Restock (Name or SKU)</label>
+                        <input type="text" id="admItemSearch" list="inventoryDatalist" placeholder="Type to search..." onchange="loadExistingStock()">
                     </div>
 
                     <div class="form-grid" id="stockFieldsGrid">
@@ -334,10 +348,5 @@
     </div>
 
     <script src="app.js"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
-        }
-    </script>
 </body>
 </html>
