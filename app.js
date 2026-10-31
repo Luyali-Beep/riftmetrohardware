@@ -11,6 +11,24 @@ let inventory = [], staff = [], sales = [], expenses = [], inquiries = [], resto
 let cart = [], posCart = [];
 let currentUser = null, pendingTargetRole = null;
 
+// === PWA INSTALL PROMPT LOGIC ===
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault(); // Prevent standard mini-infobar
+    deferredPrompt = e; // Stash event
+    const installBtn = document.getElementById('btn-install-app');
+    if (installBtn) {
+        installBtn.style.display = 'inline-block'; // Show our custom install button
+        installBtn.addEventListener('click', async () => {
+            installBtn.style.display = 'none'; // Hide upon click
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User installation choice: ${outcome}`);
+            deferredPrompt = null;
+        });
+    }
+});
+
 document.addEventListener("DOMContentLoaded", async () => {
     shopSettings = JSON.parse(localStorage.getItem("rm_settings")) || DEFAULT_SETTINGS;
     inventory = JSON.parse(localStorage.getItem("rm_inventory")) || [];
@@ -28,7 +46,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     renderViewerCatalog();
     renderOrderCart();
-    populateSearchDatalist(); // Populate autocomplete right away
+    populateSearchDatalist();
     toggleStockMode(); 
 });
 
@@ -81,7 +99,6 @@ function switchRole(role) {
         if (role === 'operator') {
             document.getElementById("view-operator").classList.add("active");
             document.getElementById("btn-operator").classList.add("active");
-            document.getElementById("opActiveName").value = currentUser.full_name;
             renderOperatorInquiries(); renderOperatorLowStock();
         } else if (role === 'admin') {
             document.getElementById("view-admin").classList.add("active");
@@ -184,7 +201,7 @@ function updatePosItemDetails() {
     const sku = searchVal.split(" | ")[0].trim();
     const item = inventory.find(p => p.sku === sku);
     
-    if (!item) return; // Wait until valid selection
+    if (!item) return; 
     document.getElementById("posInventoryHint").textContent = `Stock Available: ${item.quantity} ${item.unit} | Floor Limit: KES ${item.min_price.toLocaleString()}`;
     document.getElementById("posPriceInput").value = item.price;
 }
@@ -211,7 +228,6 @@ function addPosItemToCart() {
     else posCart.push({ sku: item.sku, name: item.name, price, qty, unit: item.unit });
     
     renderPosCart();
-    // Clear search for next item
     document.getElementById("posItemSearch").value = "";
     document.getElementById("posQtyInput").value = "1";
     document.getElementById("posPriceInput").value = "";
@@ -254,7 +270,6 @@ function completeOperatorSale() {
     const finalTotal = totalSub + tax;
     const rcptNo = "RCPT-" + Math.floor(10000 + Math.random() * 90000);
 
-    // If Credit, validate and push to Debtors
     if (mode === "Credit") {
         const cName = document.getElementById("posCreditName").value.trim();
         const cPhone = document.getElementById("posCreditPhone").value.trim();
@@ -275,9 +290,8 @@ function completeOperatorSale() {
     sales.unshift(sale);
     localStorage.setItem("rm_sales", JSON.stringify(sales));
     localStorage.setItem("rm_inventory", JSON.stringify(inventory));
-    populateSearchDatalist(); // Update stock in datalist
+    populateSearchDatalist();
 
-    // Print Receipt
     let rcptHTML = `<p><strong>Receipt No:</strong> ${rcptNo}<br><strong>Date:</strong> ${new Date().toLocaleString()}<br><strong>Cashier:</strong> ${currentUser.full_name}<br><strong>Mode:</strong> ${mode} ${refCode ? '('+refCode+')':''}</p><div class="receipt-divider"></div>`;
     posCart.forEach(c => rcptHTML += `<div style="margin:6px 0;"><strong>${c.name}</strong><br>${c.qty} ${c.unit} @ KES ${c.price} = KES ${(c.qty*c.price).toLocaleString()}</div>`);
     rcptHTML += `<div class="receipt-divider"></div><p style="font-size:1.1rem;"><strong>TOTAL: KES ${finalTotal.toLocaleString()}</strong></p>`;
@@ -286,7 +300,6 @@ function completeOperatorSale() {
     document.getElementById("receiptDetails").innerHTML = rcptHTML;
     document.getElementById("receiptModal").style.display = "flex";
 
-    // Reset
     posCart = []; renderPosCart(); document.getElementById("posRefCode").value = "";
     document.getElementById("posCreditName").value = ""; document.getElementById("posCreditPhone").value = "";
     renderOperatorLowStock();
@@ -361,7 +374,7 @@ function loadExistingStock() {
     document.getElementById("admPrice").value = item.price;
     document.getElementById("admCostPrice").value = item.cost_price;
     document.getElementById("admMinPrice").value = item.min_price;
-    document.getElementById("admQty").value = "0"; // Reset for restock addition
+    document.getElementById("admQty").value = "0"; 
     document.getElementById("admThreshold").value = item.threshold;
     document.getElementById("admUnit").value = item.unit;
 }
@@ -381,8 +394,7 @@ function adminSaveStock() {
     let newQty = qtyInput;
     if (mode === 'restock') {
         if (!target) return alert("Item not found for restock.");
-        newQty = target.quantity + qtyInput; // Add to existing
-        // Log Restock
+        newQty = target.quantity + qtyInput; 
         if (qtyInput > 0) {
             restocks.unshift({ date: new Date().toISOString(), sku, name, qty_added: qtyInput, new_total: newQty, operator: currentUser.full_name });
             localStorage.setItem("rm_restocks", JSON.stringify(restocks));
@@ -399,7 +411,7 @@ function adminSaveStock() {
 
     if (mode === 'new') inventory.push(item); else Object.assign(target, item);
     localStorage.setItem("rm_inventory", JSON.stringify(inventory));
-    populateSearchDatalist(); // Update datalist with new stock globally
+    populateSearchDatalist(); 
     
     alert(`Success! ${name} stock is now ${newQty}. Pricing updated.`);
     toggleStockMode(); renderAdminStockTable();
@@ -414,7 +426,6 @@ function renderAdminStockTable() {
     });
 }
 
-// REPORTS, DEBTORS & CREDIT Functions...
 function renderReportsTables() {
     const sBody = document.getElementById("salesReportBody");
     sBody.innerHTML = "";
