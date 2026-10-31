@@ -60,8 +60,14 @@ body {
 .summary-line { margin: 6px 0; display: flex; justify-content: space-between; color: var(--text-muted); }
 .total-line { font-weight: bold; color: var(--neon-cyan); font-size: 1.1rem; margin-top: 10px !important; }
 
+/* FIX FOR SQUISHED INPUTS: FLEX LAYOUT */
 .operator-layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 28px; }
 .pos-panel, .quick-stock-panel, .admin-card { background: var(--card-bg); border: 1px solid var(--steel-border); border-radius: 12px; padding: 28px; margin-bottom: 24px; }
+.flex-aligned-row { display: flex; gap: 12px; align-items: flex-end; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 15px; width: 100%; flex-wrap: wrap; }
+.flex-1 { flex: 1; min-width: 100px; }
+.flex-2 { flex: 2; min-width: 180px; }
+.flex-btn { flex: 0 0 auto; white-space: nowrap; }
+
 .pos-cart-box { min-height:150px; max-height: 250px; overflow-y:auto; margin-bottom: 15px; }
 .hidden { display: none !important; }
 
